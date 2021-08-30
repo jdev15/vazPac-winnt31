@@ -1,0 +1,24 @@
+# Nmake macros for building Windows 32-Bit apps
+# Alternative to importing individual .lib - use $(guilibs)
+
+!include <ntwin32.mak>
+winlibs = libc.lib kernel32.lib user32.lib gdi32.lib winmm.lib
+minver = 3.10
+linkflags = $(lflags) -subsystem:windows,$(minver) -entry:WinMainCRTStartup
+rcflags = -DWIN32 -r -v
+file = main
+
+all: $(file).exe
+
+$(file).rbj: $(file).rc $(file).h
+    $(rc) $(rcflags) $(file).rc
+    $(cvtres) -$(CPU) $(file).res -o $(file).rbj
+
+$(file).obj: $(file).c $(file).h
+    $(cc) $(cflags) $(cvars) $(file).c
+
+$(file).exe: $(file).obj $(file).rbj
+    $(link) $(linkflags) -out:$(file).exe $(file).obj $(file).rbj $(winlibs)
+
+clean:
+	del *.exe *.obj *.res *.rbj

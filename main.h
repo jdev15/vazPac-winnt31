@@ -1,0 +1,162 @@
+// VazPac.h by PhilVaz
+// Oct 20, 2003
+
+// HEADER FILE ///////////////////////////////////////////////
+
+// BMPs
+
+#define BMP_WALLBH    100
+#define BMP_WALLBV    101
+#define BMP_WALLB1    102
+#define BMP_WALLB2    103
+#define BMP_WALLB3    104
+#define BMP_WALLB4    105
+#define BMP_WALLBL    106
+#define BMP_WALLBR    107
+#define BMP_WALLBU    108
+#define BMP_WALLBD    109
+
+#define BMP_WALLGH    110
+#define BMP_WALLGV    111
+#define BMP_WALLG1    112
+#define BMP_WALLG2    113
+#define BMP_WALLG3    114
+#define BMP_WALLG4    115
+#define BMP_WALLGL    116
+#define BMP_WALLGR    117
+#define BMP_WALLGU    118
+#define BMP_WALLGD    119
+
+#define BMP_WALLRH    120
+#define BMP_WALLRV    121
+#define BMP_WALLR1    122
+#define BMP_WALLR2    123
+#define BMP_WALLR3    124
+#define BMP_WALLR4    125
+#define BMP_WALLRL    126
+#define BMP_WALLRR    127
+#define BMP_WALLRU    128
+#define BMP_WALLRD    129
+
+#define BMP_PAC0   200
+#define BMP_PAC1   201
+#define BMP_PAC2   202
+#define BMP_PAC3   203
+#define BMP_PAC4   204
+#define BMP_PAC5   205
+#define BMP_PAC6   206
+#define BMP_PAC7   207
+#define BMP_PAC8   208
+#define BMP_PAC9   209
+#define BMP_PAC10  210
+#define BMP_PAC11  211
+#define BMP_PAC12  212
+#define BMP_PAC13  213
+#define BMP_PAC14  214
+#define BMP_PAC15  215
+#define BMP_PAC16  216
+#define BMP_PAC17  217
+#define BMP_PAC18  218
+#define BMP_PAC19  219
+#define BMP_PAC20  220
+#define BMP_PAC21  221
+#define BMP_PAC22  222
+#define BMP_PAC23  223
+
+#define BMP_GHOST00    300
+#define BMP_GHOST01    301
+#define BMP_GHOST02    302
+#define BMP_GHOST03    303
+#define BMP_GHOST04    304
+#define BMP_GHOST05    305
+#define BMP_GHOST06    306
+#define BMP_GHOST07    307
+#define BMP_GHOST08    308
+#define BMP_GHOST09    309
+#define BMP_GHOST10    310
+#define BMP_GHOST11    311
+#define BMP_GHOST12    312
+#define BMP_GHOST13    313
+#define BMP_GHOST14    314
+#define BMP_GHOST15    315
+#define BMP_GHOST16    316
+#define BMP_GHOST17    317
+#define BMP_GHOST18    318
+#define BMP_GHOST19    319
+#define BMP_GHOST20    320
+#define BMP_GHOST21    321
+#define BMP_GHOST22    322
+#define BMP_GHOST23    323
+#define BMP_GHOST24    324
+#define BMP_GHOST25    325
+#define BMP_GHOST26    326
+#define BMP_GHOST27    327
+#define BMP_GHOST28    328
+#define BMP_GHOST29    329
+#define BMP_GHOST30    330
+#define BMP_GHOST31    331
+#define BMP_GHOST32    332
+#define BMP_GHOST33    333
+#define BMP_GHOST34    334
+#define BMP_GHOST35    335
+#define BMP_GHOST36    336
+#define BMP_GHOST37    337
+#define BMP_GHOST38    338
+#define BMP_GHOST39    339
+#define BMP_GHOST40    340
+#define BMP_GHOST41    341
+#define BMP_GHOST42    342
+#define BMP_GHOST43    343
+
+#define BMP_FOOD00   400
+#define BMP_FOOD01   401
+#define BMP_FOOD02   402
+#define BMP_FOOD03   403
+#define BMP_FOOD04   404
+#define BMP_FOOD05   405
+#define BMP_FOOD06   406
+#define BMP_FOOD07   407
+#define BMP_FOOD08   408
+#define BMP_FOOD09   409
+#define BMP_FOOD10   410
+#define BMP_FOOD11   411
+#define BMP_FOOD12   412
+#define BMP_FOOD13   413
+#define BMP_FOOD14   414
+#define BMP_FOOD15   415
+#define BMP_FOOD16   416
+#define BMP_FOOD17   417
+#define BMP_FOOD18   418
+#define BMP_FOOD19   419
+
+// SOUNDS
+
+#define SOUND_DEATH1     500
+#define SOUND_DEATH2     501
+#define SOUND_EAT1       502
+#define SOUND_EAT2       503
+#define SOUND_EAT3       504
+#define SOUND_EAT4       505
+#define SOUND_EAT5       506
+#define SOUND_EAT6       507
+#define SOUND_EAT7       508
+#define SOUND_EAT8       509
+#define SOUND_EXTRA      510
+#define SOUND_FIRE       511
+#define SOUND_GHOSTEAT   512
+#define SOUND_GHOSTEYES  513
+#define SOUND_HAPPY      514
+#define SOUND_HURL       515 
+#define SOUND_INTERM1    516
+#define SOUND_INTERM2    517
+#define SOUND_INTERM3    518
+#define SOUND_INTERM4    519
+#define SOUND_MUNCH      520
+#define SOUND_OPEN1      521
+#define SOUND_OPEN2      522
+#define SOUND_POWER      523
+#define SOUND_SIREN1     524
+#define SOUND_SIREN2     525
+#define SOUND_SIREN3     526
+#define SOUND_SIREN4     527
+#define SOUND_SIREN5     528
