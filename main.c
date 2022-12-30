@@ -137,39 +137,37 @@ HBITMAP back_bmp = NULL;
 HBITMAP old_bmp = NULL;
 RECT back_rect = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
 
-WAVEFORMAT    waveFormat;
-
 HWAVEOUT game_sound_main = NULL;            // global direct sound object
 
-HWAVEOUT game_sound_death1    = NULL; // sound death 1
-HWAVEOUT game_sound_death2    = NULL; // sound death 2
-HWAVEOUT game_sound_eat1      = NULL; // sound normal food eat
-HWAVEOUT game_sound_eat2      = NULL; // sound eat 2
-HWAVEOUT game_sound_eat3      = NULL; // sound eat 3
-HWAVEOUT game_sound_eat4      = NULL; // sound eat 4 burp
-HWAVEOUT game_sound_eat5      = NULL; // sound eat 5 burp
-HWAVEOUT game_sound_eat6      = NULL; // sound eat 6
-HWAVEOUT game_sound_eat7      = NULL; // sound eat 7 hic
-HWAVEOUT game_sound_eat8      = NULL; // sound eat 8 hic
-HWAVEOUT game_sound_extra     = NULL; // sound extra vaz
-HWAVEOUT game_sound_fire      = NULL; // sound fire bullet
-HWAVEOUT game_sound_ghosteat  = NULL; // sound ghost eaten
-HWAVEOUT game_sound_ghosteyes = NULL; // sound ghost eyes to jail
-HWAVEOUT game_sound_happy     = NULL; // sound happy giggle
-HWAVEOUT game_sound_hurl      = NULL; // sound hurl garth
-HWAVEOUT game_sound_interm1   = NULL; // sound interm 1
-HWAVEOUT game_sound_interm2   = NULL; // sound interm 2
-HWAVEOUT game_sound_interm3   = NULL; // sound interm 3
-HWAVEOUT game_sound_interm4   = NULL; // sound interm 4
-HWAVEOUT game_sound_munch     = NULL; // sound normal munch
-HWAVEOUT game_sound_open1     = NULL; // sound open song 1
-HWAVEOUT game_sound_open2     = NULL; // sound open song 2
-HWAVEOUT game_sound_power     = NULL; // sound power pill
-HWAVEOUT game_sound_siren1    = NULL; // sound siren 1
-HWAVEOUT game_sound_siren2    = NULL; // sound siren 2
-HWAVEOUT game_sound_siren3    = NULL; // sound siren 3
-HWAVEOUT game_sound_siren4    = NULL; // sound siren 4
-HWAVEOUT game_sound_siren5    = NULL; // sound siren 5
+HMMIO game_sound_death1    = NULL; // sound death 1
+HMMIO game_sound_death2    = NULL; // sound death 2
+HMMIO game_sound_eat1      = NULL; // sound normal food eat
+HMMIO game_sound_eat2      = NULL; // sound eat 2
+HMMIO game_sound_eat3      = NULL; // sound eat 3
+HMMIO game_sound_eat4      = NULL; // sound eat 4 burp
+HMMIO game_sound_eat5      = NULL; // sound eat 5 burp
+HMMIO game_sound_eat6      = NULL; // sound eat 6
+HMMIO game_sound_eat7      = NULL; // sound eat 7 hic
+HMMIO game_sound_eat8      = NULL; // sound eat 8 hic
+HMMIO game_sound_extra     = NULL; // sound extra vaz
+HMMIO game_sound_fire      = NULL; // sound fire bullet
+HMMIO game_sound_ghosteat  = NULL; // sound ghost eaten
+HMMIO game_sound_ghosteyes = NULL; // sound ghost eyes to jail
+HMMIO game_sound_happy     = NULL; // sound happy giggle
+HMMIO game_sound_hurl      = NULL; // sound hurl garth
+HMMIO game_sound_interm1   = NULL; // sound interm 1
+HMMIO game_sound_interm2   = NULL; // sound interm 2
+HMMIO game_sound_interm3   = NULL; // sound interm 3
+HMMIO game_sound_interm4   = NULL; // sound interm 4
+HMMIO game_sound_munch     = NULL; // sound normal munch
+HMMIO game_sound_open1     = NULL; // sound open song 1
+HMMIO game_sound_open2     = NULL; // sound open song 2
+HMMIO game_sound_power     = NULL; // sound power pill
+HMMIO game_sound_siren1    = NULL; // sound siren 1
+HMMIO game_sound_siren2    = NULL; // sound siren 2
+HMMIO game_sound_siren3    = NULL; // sound siren 3
+HMMIO game_sound_siren4    = NULL; // sound siren 4
+HMMIO game_sound_siren5    = NULL; // sound siren 5
 
 DEVMODE game_screen; // global for full screen mode
 
@@ -1056,7 +1054,7 @@ void GameInit()
     hfoodbmp[19] = (HBITMAP)LoadBitmap(game_instance, MAKEINTRESOURCE(BMP_FOOD19));
     GetObject(hfoodbmp[19], sizeof(foodbmp[19]), &foodbmp[19]);
 
-    // Initialize DirectSound
+    // Initialize Wave Sound
     sound_ok = SoundInit();
 
     // Initialize Joystick
@@ -3436,115 +3434,184 @@ void MoveParticles()
 
 ///////////////////////////////////////////////////////
 //
-// Initialize DirectSound and individual sound buffers
+// Initialize WaveOut and individual sound buffers
 //
 ///////////////////////////////////////////////////////
 
 BOOL SoundInit()
 {
-    /* if (DirectSoundCreate(NULL, &game_sound_main, NULL) != DS_OK)
+    static WAVEOUTCAPS devCaps;
+    static WAVEFORMAT waveformat;
+
+    if (waveOutGetDevCaps(WAVE_MAPPER, &devCaps, sizeof(WAVEOUTCAPS)) != MMSYSERR_NOERROR)
     {
-        MessageBox(game_window, "Sound could not be initialized -- Direct Sound Create Error", "Sound Error", MB_OK);
+        MessageBox(game_window, "Sound could not be initialized -- WaveOut Device Capabilities Get Error", "Sound Error", MB_OK);
         return FALSE;
     }
 
-    //
-    // Direct Sound object succeeded so set coop level
-    //
+    // Set wave playback device info
+    waveformat.wFormatTag = WAVE_FORMAT_PCM;
+    waveformat.nChannels = devCaps.wChannels;
 
-    if (IDirectSound_SetCooperativeLevel(game_sound_main, game_window, DSSCL_PRIORITY) != DS_OK)
+    if (devCaps.dwFormats == WAVE_FORMAT_4S16)
     {
-        MessageBox(game_window, "Sound could not be initialized -- Cooperative Level Error", "Sound Error", MB_OK);
+        waveformat.nChannels = 2;
+        waveformat.nBlockAlign = 4;
+        waveformat.nSamplesPerSec = 44100;
+        waveformat.nAvgBytesPerSec = 176400;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_4M16)
+    {
+        waveformat.nChannels = 1;
+        waveformat.nBlockAlign = 2;
+        waveformat.nSamplesPerSec = 44100;
+        waveformat.nAvgBytesPerSec = 88200;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_4S08)
+    {
+        waveformat.nChannels = 2;
+        waveformat.nBlockAlign = 2;
+        waveformat.nSamplesPerSec = 44100;
+        waveformat.nAvgBytesPerSec = 88200;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_4M08)
+    {
+        waveformat.nChannels = 1;
+        waveformat.nBlockAlign = 1;
+        waveformat.nSamplesPerSec = 44100;
+        waveformat.nAvgBytesPerSec = 44100;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_2S16)
+    {
+        waveformat.nChannels = 2;
+        waveformat.nBlockAlign = 4;
+        waveformat.nSamplesPerSec = 22050;
+        waveformat.nAvgBytesPerSec = 88200;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_2M16)
+    {
+        waveformat.nChannels = 1;
+        waveformat.nBlockAlign = 2;
+        waveformat.nSamplesPerSec = 22050;
+        waveformat.nAvgBytesPerSec = 44100;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_2S08)
+    {
+        waveformat.nChannels = 2;
+        waveformat.nBlockAlign = 2;
+        waveformat.nSamplesPerSec = 22050;
+        waveformat.nAvgBytesPerSec = 44100;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_2M08)
+    {
+        waveformat.nChannels = 1;
+        waveformat.nBlockAlign = 1;
+        waveformat.nSamplesPerSec = 22050;
+        waveformat.nAvgBytesPerSec = 22050;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_1S16)
+    {
+        waveformat.nChannels = 2;
+        waveformat.nBlockAlign = 4;
+        waveformat.nSamplesPerSec = 11025;
+        waveformat.nAvgBytesPerSec = 44100;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_1M16)
+    {
+        waveformat.nChannels = 1;
+        waveformat.nBlockAlign = 2;
+        waveformat.nSamplesPerSec = 11025;
+        waveformat.nAvgBytesPerSec = 22050;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_1S08)
+    {
+        waveformat.nChannels = 2;
+        waveformat.nBlockAlign = 2;
+        waveformat.nSamplesPerSec = 11025;
+        waveformat.nAvgBytesPerSec = 22050;
+    } else if (devCaps.dwFormats == WAVE_FORMAT_1M08)
+    {
+        waveformat.nChannels = 1;
+        waveformat.nBlockAlign = 1;
+        waveformat.nSamplesPerSec = 11025;
+        waveformat.nAvgBytesPerSec = 11025;
+    }
+
+    if (waveOutOpen(&game_sound_main, WAVE_MAPPER, &waveformat, (DWORD) game_window, 0, CALLBACK_WINDOW) != MMSYSERR_NOERROR)
+    {
+        MessageBox(game_window, "Sound could not be initialized -- WaveOut Open Error", "Sound Error", MB_OK);
         return FALSE;
     }
 
-    //
-    // Cooperative Level succeeded so set up
-    // secondary buffers and load wave file sound resources
-    //
+    game_sound_death1 = mmioOpen(MAKEINTRESOURCE(SOUND_DEATH1), 0, MMIO_READ);
+    game_sound_death2 = mmioOpen(MAKEINTRESOURCE(SOUND_DEATH2), 0, MMIO_READ);
+    game_sound_eat1 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT1), 0, MMIO_READ);
+    game_sound_eat2 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT2), 0, MMIO_READ);
+    game_sound_eat3 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT3), 0, MMIO_READ);
+    game_sound_eat4 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT4), 0, MMIO_READ);
+    game_sound_eat5 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT5), 0, MMIO_READ);
+    game_sound_eat6 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT6), 0, MMIO_READ);
+    game_sound_eat7 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT7), 0, MMIO_READ);
+    game_sound_eat8 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT8), 0, MMIO_READ);
+    game_sound_extra = mmioOpen(MAKEINTRESOURCE(SOUND_EXTRA), 0, MMIO_READ);
+    game_sound_fire = mmioOpen(MAKEINTRESOURCE(SOUND_FIRE), 0, MMIO_READ);
+    game_sound_ghosteat = mmioOpen(MAKEINTRESOURCE(SOUND_GHOSTEAT), 0, MMIO_READ);
+    game_sound_ghosteyes = mmioOpen(MAKEINTRESOURCE(SOUND_GHOSTEYES), 0, MMIO_READ);
+    game_sound_happy = mmioOpen(MAKEINTRESOURCE(SOUND_HAPPY), 0, MMIO_READ);
+    game_sound_hurl = mmioOpen(MAKEINTRESOURCE(SOUND_HURL), 0, MMIO_READ);
+    game_sound_interm1 = mmioOpen(MAKEINTRESOURCE(SOUND_INTERM1), 0, MMIO_READ);
+    game_sound_interm2 = mmioOpen(MAKEINTRESOURCE(SOUND_INTERM2), 0, MMIO_READ);
+    game_sound_interm3 = mmioOpen(MAKEINTRESOURCE(SOUND_INTERM3), 0, MMIO_READ);
+    game_sound_interm4 = mmioOpen(MAKEINTRESOURCE(SOUND_INTERM4), 0, MMIO_READ);
+    game_sound_munch = mmioOpen(MAKEINTRESOURCE(SOUND_MUNCH), 0, MMIO_READ);
+    game_sound_open1 = mmioOpen(MAKEINTRESOURCE(SOUND_OPEN1), 0, MMIO_READ);
+    game_sound_open2 = mmioOpen(MAKEINTRESOURCE(SOUND_OPEN2), 0, MMIO_READ);
+    game_sound_power = mmioOpen(MAKEINTRESOURCE(SOUND_POWER), 0, MMIO_READ);
+    game_sound_siren1 = mmioOpen(MAKEINTRESOURCE(SOUND_SIREN1), 0, MMIO_READ);
+    game_sound_siren2 = mmioOpen(MAKEINTRESOURCE(SOUND_SIREN2), 0, MMIO_READ);
+    game_sound_siren3 = mmioOpen(MAKEINTRESOURCE(SOUND_SIREN3), 0, MMIO_READ);
+    game_sound_siren4 = mmioOpen(MAKEINTRESOURCE(SOUND_SIREN4), 0, MMIO_READ);
+    game_sound_siren5 = mmioOpen(MAKEINTRESOURCE(SOUND_SIREN5), 0, MMIO_READ);
 
-    game_sound_death1 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_DEATH1));
-    game_sound_death2 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_DEATH2));
-    game_sound_eat1 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_EAT1));
-    game_sound_eat2 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_EAT2));
-    game_sound_eat3 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_EAT3));
-    game_sound_eat4 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_EAT4));
-    game_sound_eat5 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_EAT5));
-    game_sound_eat6 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_EAT6));
-    game_sound_eat7 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_EAT7));
-    game_sound_eat8 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_EAT8));
-    game_sound_extra = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_EXTRA));
-    game_sound_fire = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_FIRE));
-    game_sound_ghosteat = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_GHOSTEAT));
-    game_sound_ghosteyes = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_GHOSTEYES));
-    game_sound_happy = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_HAPPY));
-    game_sound_hurl = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_HURL));
-    game_sound_interm1 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_INTERM1));
-    game_sound_interm2 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_INTERM2));
-    game_sound_interm3 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_INTERM3));
-    game_sound_interm4 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_INTERM4));
-    game_sound_munch = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_MUNCH));
-    game_sound_open1 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_OPEN1));
-    game_sound_open2 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_OPEN2));
-    game_sound_power = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_POWER));
-    game_sound_siren1 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_SIREN1));
-    game_sound_siren2 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_SIREN2));
-    game_sound_siren3 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_SIREN3));
-    game_sound_siren4 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_SIREN4));
-    game_sound_siren5 = DSLoadSoundBuffer(game_sound_main, MAKEINTRESOURCE(SOUND_SIREN5));
-
-    // return TRUE since main DirectSound initialized ok
-
-    return TRUE; */
-    return FALSE;
+    return TRUE;
 
 } // END OF SoundInit
 
 //////////////////////////////////////////////////////
 //
-// Stop all sounds and close DirectSound and buffers
+// Stop all sounds and close multimedia and waveOut
 //
 /////////////////////////////////////////////////////
 
 void SoundQuit()
 {
-    // if sound was set okay, release DirectSound objects
-    /* if (game_sound_main)
+    // if sound was set okay, release sound files and handlers
+    if (game_sound_main)
     {
-        // FIRST RELEASE SECONDARY BUFFERS
-        IDirectSound_Release(game_sound_death1);
-        IDirectSound_Release(game_sound_death2);
-        IDirectSound_Release(game_sound_eat1);
-        IDirectSound_Release(game_sound_eat2);
-        IDirectSound_Release(game_sound_eat3);
-        IDirectSound_Release(game_sound_eat4);
-        IDirectSound_Release(game_sound_eat5);
-        IDirectSound_Release(game_sound_eat6);
-        IDirectSound_Release(game_sound_eat7);
-        IDirectSound_Release(game_sound_eat8);
-        IDirectSound_Release(game_sound_extra);
-        IDirectSound_Release(game_sound_fire);
-        IDirectSound_Release(game_sound_ghosteat);
-        IDirectSound_Release(game_sound_ghosteyes);
-        IDirectSound_Release(game_sound_happy);
-        IDirectSound_Release(game_sound_hurl);
-        IDirectSound_Release(game_sound_interm1);
-        IDirectSound_Release(game_sound_interm2);
-        IDirectSound_Release(game_sound_interm3);
-        IDirectSound_Release(game_sound_interm4);
-        IDirectSound_Release(game_sound_munch);
-        IDirectSound_Release(game_sound_open1);
-        IDirectSound_Release(game_sound_open2);
-        IDirectSound_Release(game_sound_power);
-        IDirectSound_Release(game_sound_siren1);
-        IDirectSound_Release(game_sound_siren2);
-        IDirectSound_Release(game_sound_siren3);
-        IDirectSound_Release(game_sound_siren4);
-        IDirectSound_Release(game_sound_siren5);
+        // FIRST RELEASE WAV BUFFERS
+        mmioClose(game_sound_death1, 0);
+        mmioClose(game_sound_death2, 0);
+        mmioClose(game_sound_eat1, 0);
+        mmioClose(game_sound_eat2, 0);
+        mmioClose(game_sound_eat3, 0);
+        mmioClose(game_sound_eat4, 0);
+        mmioClose(game_sound_eat5, 0);
+        mmioClose(game_sound_eat6, 0);
+        mmioClose(game_sound_eat7, 0);
+        mmioClose(game_sound_eat8, 0);
+        mmioClose(game_sound_extra, 0);
+        mmioClose(game_sound_fire, 0);
+        mmioClose(game_sound_ghosteat, 0);
+        mmioClose(game_sound_ghosteyes, 0);
+        mmioClose(game_sound_happy, 0);
+        mmioClose(game_sound_hurl, 0);
+        mmioClose(game_sound_interm1, 0);
+        mmioClose(game_sound_interm2, 0);
+        mmioClose(game_sound_interm3, 0);
+        mmioClose(game_sound_interm4, 0);
+        mmioClose(game_sound_munch, 0);
+        mmioClose(game_sound_open1, 0);
+        mmioClose(game_sound_open2, 0);
+        mmioClose(game_sound_power, 0);
+        mmioClose(game_sound_siren1, 0);
+        mmioClose(game_sound_siren2, 0);
+        mmioClose(game_sound_siren3, 0);
+        mmioClose(game_sound_siren4, 0);
+        mmioClose(game_sound_siren5, 0);
 
         // THEN RELEASE MAIN DIRECT SOUND OBJECT
-        IDirectSound_Release(game_sound_main);
-    } */
+        waveOutClose(game_sound_main);
+    }
 
 } // END OF SoundQuit
 
