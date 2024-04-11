@@ -19,470 +19,6 @@
 
 #include "main.h" // sounds and bitmap resources
 
-// DEFINES ////////////////////////////////////////////////
-
-// defines for windows
-
-#define WINDOW_CLASS_NAME "WINCLASS1"
-
-#define WINDOW_WIDTH 800 // size of game window
-#define WINDOW_HEIGHT 600
-
-#define GAME_SPEED 15 // speed of game (increase to go slower)
-
-#define GAME_STATE_DEMO_INIT 0  // demo initialization state
-#define GAME_STATE_DEMO_RUN 1   // demo running state
-#define GAME_STATE_GAME_INIT 2  // game initialization state
-#define GAME_STATE_GAME_RUN 3   // game running state
-#define GAME_STATE_GAME_RESET 4 // game reset state (new level)
-#define GAME_STATE_GAME_PAUSE 5 // game pause state (no movement)
-#define GAME_STATE_INTM_INIT 6  // intermission init
-#define GAME_STATE_INTM_RUN 7   // intermission running
-
-#define VAZ_SPEED 3    // Vaz character 3 pixels per move constant
-#define BULLET_SPEED 6 // for ghostbuster gun
-
-#define MAZE_WIDTH 25  // Maze horizontal width 25 blocks
-#define MAZE_HEIGHT 19 // Maze vertical height  19 blocks
-#define BLOCK_SIZE 30  // Maze block size = 30 pixels each block
-
-#define XTOP_LEFT 25 // Top Left X pixel position for Maze
-#define YTOP_LEFT 0  // Top Left Y pixel position for Maze
-
-#define XSCREEN_LIMIT 745 // limit for objects on X
-#define YSCREEN_LIMIT 540 // limit for objects on Y
-
-#define MAX_GHOSTS 9      // 3 = level 1,2 -- 6 = level 3,4,5 -- 9 = level 6+
-#define MAX_POWER 10      // max number of power pills
-#define MAX_FOOD 10       // max number of food items
-#define MAX_SCORES 20     // max number of displayed scores
-#define MAX_BULLETS 5     // max bullets for ghostbuster gun
-#define MAX_PARTICLES 250 // max number of particles for explosions etc
-
-#define SCORE_PELLET 5
-#define SCORE_POWER 25
-
-#define SCORE_FOOD 100    // times level #
-#define SCORE_GHOST 100   // doubles each ghost chomped, 200, 400, 800, 1600, etc
-#define SCORE_EXTRA 10000 // score for extra Vaz
-
-#define LEVEL_PAUSE 150    // pause between levels, show Level #, Ready!, Go!
-#define GHOST_PAUSE 4      // pause for feet positions
-#define BULLET_PAUSE 10    // pause time between bullets
-#define BULLET_DURATION 90 // how long bullet lasts
-#define GUN_DURATION 1000
-
-#define VAZ_NORMAL 0
-#define VAZ_DYING 1
-
-#define DIFFICULTY_EASY 0 // ghost speed = 2 demonic speed = 3
-#define DIFFICULTY_HARD 1 // ghost speed = 3 demonic speed = 4
-
-#define CHASE_NORMAL 0  // ghost chasing vaz
-#define CHASE_AWAY 1    // ghost running away
-#define CHASE_DEMONIC 2 // ghost demonic chasing
-#define CHASE_EYES 3    // ghost eyes only back to jail
-
-#define GHOST_BLUE 0     // bmp positions 0,1,2,3,      4,5,6,7
-#define GHOST_GREEN 8    // bmp positions 8,9,10,11,   12,13,14,15
-#define GHOST_RED 16     // bmp positions 16,17,18,19, 20,21,22,23
-#define GHOST_SCARED 24  // bmp positions 24,25,26,27, 28,29,30,31 white/yellow
-#define GHOST_DEMONIC 32 // bmp positions 32,33,34,35, 36,37,38,39 dark red
-#define GHOST_EYES 40    // bmp positions 40,41,42,43 eyes only
-
-#define DIRECTION_RIGHT 0
-#define DIRECTION_DOWN 1
-#define DIRECTION_LEFT 2
-#define DIRECTION_UP 3
-#define DIRECTION_NONE 99
-
-#define VAZ_RIGHT 0 // bmp positions
-#define VAZ_DOWN 6
-#define VAZ_LEFT 12
-#define VAZ_UP 18
-
-#define MAZE_BLUE 0
-#define MAZE_GREEN 10
-#define MAZE_RED 20
-
-#define MAZE_BLANK 0
-
-#define MAZE_PELLET 1
-#define MAZE_POWER 2
-#define MAZE_BL 3  // curve bottom-left
-#define MAZE_BR 4  // curve bottom-right
-#define MAZE_TL 5  // curve top-left
-#define MAZE_TR 6  // curve top-right
-#define MAZE_HZ 7  // straight horizontal
-#define MAZE_VT 8  // straight vertical
-#define MAZE_LT 9  // left end
-#define MAZE_RT 10 // right end
-#define MAZE_UP 11 // up end
-#define MAZE_DN 12 // down end
-
-// MACROS /////////////////////////////////////////////////
-
-#define KEYDOWN(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 1 : 0)
-#define KEYUP(vk_code) ((GetAsyncKeyState(vk_code) & 0x8000) ? 0 : 1)
-
-// GLOBALS ////////////////////////////////////////////////
-
-HWND game_window = NULL;        // global game window handle
-HINSTANCE game_instance = NULL; // global game instance handle
-HDC game_dc = NULL;             // global device context (for GDI) handle
-
-// for back (double) buffering
-HDC back_dc = NULL;
-HBITMAP back_bmp = NULL;
-HBITMAP old_bmp = NULL;
-RECT back_rect = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
-
-HWAVEOUT game_sound_main = NULL;            // global direct sound object
-
-HMMIO game_sound_death1    = NULL; // sound death 1
-HMMIO game_sound_death2    = NULL; // sound death 2
-HMMIO game_sound_eat1      = NULL; // sound normal food eat
-HMMIO game_sound_eat2      = NULL; // sound eat 2
-HMMIO game_sound_eat3      = NULL; // sound eat 3
-HMMIO game_sound_eat4      = NULL; // sound eat 4 burp
-HMMIO game_sound_eat5      = NULL; // sound eat 5 burp
-HMMIO game_sound_eat6      = NULL; // sound eat 6
-HMMIO game_sound_eat7      = NULL; // sound eat 7 hic
-HMMIO game_sound_eat8      = NULL; // sound eat 8 hic
-HMMIO game_sound_extra     = NULL; // sound extra vaz
-HMMIO game_sound_fire      = NULL; // sound fire bullet
-HMMIO game_sound_ghosteat  = NULL; // sound ghost eaten
-HMMIO game_sound_ghosteyes = NULL; // sound ghost eyes to jail
-HMMIO game_sound_happy     = NULL; // sound happy giggle
-HMMIO game_sound_hurl      = NULL; // sound hurl garth
-HMMIO game_sound_interm1   = NULL; // sound interm 1
-HMMIO game_sound_interm2   = NULL; // sound interm 2
-HMMIO game_sound_interm3   = NULL; // sound interm 3
-HMMIO game_sound_interm4   = NULL; // sound interm 4
-HMMIO game_sound_munch     = NULL; // sound normal munch
-HMMIO game_sound_open1     = NULL; // sound open song 1
-HMMIO game_sound_open2     = NULL; // sound open song 2
-HMMIO game_sound_power     = NULL; // sound power pill
-HMMIO game_sound_siren1    = NULL; // sound siren 1
-HMMIO game_sound_siren2    = NULL; // sound siren 2
-HMMIO game_sound_siren3    = NULL; // sound siren 3
-HMMIO game_sound_siren4    = NULL; // sound siren 4
-HMMIO game_sound_siren5    = NULL; // sound siren 5
-
-DEVMODE game_screen; // global for full screen mode
-
-// global pens and brush
-
-HPEN red_pen;
-HPEN green_pen;
-HPEN blue_pen;
-HPEN yellow_pen;
-HPEN white_pen;
-HPEN black_pen;
-
-HBRUSH black_brush;
-HBRUSH white_brush;
-HBRUSH yellow_brush;
-HBRUSH red_brush;
-
-// global joystick variables
-
-BOOL joy_ok; // whether joystick found ok
-
-UINT joy_num;     // number of joys
-JOYINFO joy_info; // joy init info
-UINT joy_ID;      // joy ID
-JOYCAPS joy_caps; // joy capture info
-RECT joy_trip;    // joy trip info
-
-DWORD joy_xcenter; // joy x axis center
-DWORD joy_ycenter; // joy y axis center
-
-// joy directions (1=true, 0=false)
-int joy_left, joy_right, joy_up, joy_down, joy_but1, joy_but2, joy_but3, joy_but4;
-
-// global game variables
-
-int game_state = GAME_STATE_DEMO_INIT; // start in demo state
-
-char text[80]; // for display text output
-
-int game_score = 0;
-int chomp_score; // for remember ghost doubled 100,200,400,800, etc
-int extra_score; // target score for extra Vaz
-
-int game_level = 1;
-int game_difficulty = DIFFICULTY_EASY;
-
-int ghost_speed;             // faster with DIFFICULTY_HARD
-int ghost_feet, ghost_delay; // for feet position
-
-int vaz_left = 0;
-int pellets_left; // total number of pellets counted from Maze
-
-int level_countdown = 0;  // pause time between levels
-int bullet_countdown = 0; // pause time between bullets
-
-BOOL sound_ok;  // for whether DirectSound set okay
-BOOL anim_over; // for whether intermission animation over
-
-int maze_color; // current maze color
-
-int Maze[MAZE_HEIGHT][MAZE_WIDTH];
-
-int Archive1[MAZE_HEIGHT][MAZE_WIDTH] =
-
-    // MAZE 1
-
-    {
-        {5, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6},
-        {8, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 8},
-        {8, 1, 9, 7, 7, 10, 1, 9, 7, 7, 10, 1, 12, 1, 9, 7, 7, 10, 1, 9, 7, 7, 10, 1, 8},
-        {8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8},
-        {8, 1, 9, 7, 7, 10, 1, 9, 6, 1, 9, 7, 7, 7, 10, 1, 5, 10, 1, 9, 7, 7, 10, 1, 8},
-        {8, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 8, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 8},
-        {8, 1, 9, 7, 7, 7, 6, 1, 8, 7, 10, 1, 12, 1, 9, 7, 8, 1, 5, 7, 7, 7, 10, 1, 8},
-        {8, 1, 1, 1, 1, 1, 8, 1, 8, 1, 1, 0, 0, 0, 1, 1, 8, 1, 8, 1, 1, 1, 1, 1, 8},
-        {3, 7, 7, 7, 10, 1, 8, 1, 12, 1, 5, 10, 0, 9, 6, 1, 12, 1, 8, 1, 9, 7, 7, 7, 4},
-        {0, 1, 1, 1, 1, 1, 8, 1, 1, 1, 8, 0, 0, 0, 8, 1, 1, 1, 8, 1, 1, 1, 1, 1, 0},
-        {5, 7, 7, 7, 10, 1, 8, 1, 11, 1, 3, 7, 7, 7, 4, 1, 11, 1, 8, 1, 9, 7, 7, 7, 6},
-        {8, 1, 1, 1, 1, 1, 8, 1, 8, 1, 1, 0, 0, 0, 1, 1, 8, 1, 8, 1, 1, 1, 1, 1, 8},
-        {8, 1, 9, 7, 6, 1, 12, 1, 12, 1, 9, 7, 7, 7, 10, 1, 12, 1, 12, 1, 5, 7, 10, 1, 8},
-        {8, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 8},
-        {8, 7, 10, 1, 12, 1, 9, 7, 10, 1, 11, 1, 8, 1, 11, 1, 9, 7, 10, 1, 12, 1, 9, 7, 8},
-        {8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 8, 1, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8},
-        {8, 1, 9, 7, 7, 7, 7, 7, 10, 1, 12, 1, 12, 1, 12, 1, 9, 7, 7, 7, 7, 7, 10, 1, 8},
-        {8, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 8},
-        {3, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4}};
-
-int Archive2[MAZE_HEIGHT][MAZE_WIDTH] =
-
-    // MAZE 2
-
-    {
-        {5, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6},
-        {8, 2, 1, 1, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 1, 1, 2, 8},
-        {8, 1, 9, 7, 7, 10, 1, 12, 1, 9, 7, 7, 7, 7, 7, 10, 1, 12, 1, 9, 7, 7, 10, 1, 8},
-        {8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8},
-        {3, 7, 7, 10, 1, 11, 1, 9, 7, 7, 10, 1, 11, 1, 9, 7, 7, 10, 1, 11, 1, 9, 7, 7, 4},
-        {0, 1, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 1, 0},
-        {5, 7, 7, 10, 1, 3, 7, 10, 1, 9, 7, 7, 7, 7, 7, 10, 1, 9, 7, 4, 1, 9, 7, 7, 6},
-        {8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8},
-        {8, 1, 9, 10, 1, 5, 7, 7, 10, 1, 5, 10, 0, 9, 6, 1, 9, 7, 7, 6, 1, 9, 10, 1, 8},
-        {8, 1, 1, 1, 1, 8, 1, 1, 1, 1, 8, 0, 0, 0, 8, 1, 1, 1, 1, 8, 1, 1, 1, 1, 8},
-        {3, 7, 7, 10, 1, 8, 1, 9, 6, 1, 3, 7, 7, 7, 4, 1, 5, 10, 1, 8, 1, 9, 7, 7, 4},
-        {0, 1, 1, 1, 1, 8, 1, 1, 8, 1, 1, 0, 0, 0, 1, 1, 8, 1, 1, 8, 1, 1, 1, 1, 0},
-        {5, 7, 7, 10, 1, 12, 1, 9, 7, 7, 10, 1, 11, 1, 9, 7, 7, 10, 1, 12, 1, 9, 7, 7, 6},
-        {8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8},
-        {8, 1, 5, 7, 10, 1, 5, 7, 10, 1, 9, 7, 7, 7, 10, 1, 9, 7, 6, 1, 9, 7, 6, 1, 8},
-        {8, 1, 8, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 8, 1, 8},
-        {8, 1, 12, 1, 9, 7, 4, 1, 9, 7, 7, 7, 7, 7, 7, 7, 10, 1, 3, 7, 10, 1, 12, 1, 8},
-        {8, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 8},
-        {3, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4}};
-
-int Archive3[MAZE_HEIGHT][MAZE_WIDTH] =
-
-    // MAZE 3
-
-    {
-        {5, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6, 0, 5, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6},
-        {8, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 8},
-        {8, 1, 9, 7, 6, 1, 9, 7, 6, 1, 9, 4, 1, 3, 10, 1, 5, 7, 10, 1, 5, 7, 10, 1, 8},
-        {8, 1, 1, 1, 8, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 8, 1, 1, 1, 8},
-        {8, 1, 11, 1, 3, 7, 6, 1, 3, 7, 7, 10, 1, 9, 7, 7, 4, 1, 5, 7, 4, 1, 11, 1, 8},
-        {8, 1, 8, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 8, 1, 8},
-        {8, 1, 3, 7, 6, 1, 3, 7, 6, 1, 9, 10, 1, 9, 10, 1, 5, 7, 4, 1, 5, 7, 4, 1, 8},
-        {8, 1, 1, 1, 8, 1, 1, 1, 8, 2, 1, 0, 0, 0, 1, 2, 8, 1, 1, 1, 8, 1, 1, 1, 8},
-        {3, 7, 10, 1, 3, 7, 10, 1, 12, 1, 5, 10, 0, 9, 6, 1, 12, 1, 9, 7, 4, 1, 9, 7, 4},
-        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 0, 0, 0, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},
-        {5, 7, 10, 1, 5, 7, 10, 1, 11, 1, 3, 7, 7, 7, 4, 1, 11, 1, 9, 7, 6, 1, 9, 7, 6},
-        {8, 1, 1, 1, 8, 1, 1, 1, 8, 2, 1, 0, 0, 0, 1, 2, 8, 1, 1, 1, 8, 1, 1, 1, 8},
-        {8, 1, 5, 7, 4, 1, 5, 7, 4, 1, 9, 10, 1, 9, 10, 1, 3, 7, 6, 1, 3, 7, 6, 1, 8},
-        {8, 1, 8, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 8, 1, 8},
-        {8, 1, 12, 1, 5, 7, 4, 1, 5, 7, 7, 10, 1, 9, 7, 7, 6, 1, 3, 7, 6, 1, 12, 1, 8},
-        {8, 1, 1, 1, 8, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 8, 1, 1, 1, 8},
-        {8, 1, 9, 7, 4, 1, 9, 7, 4, 1, 9, 6, 1, 5, 10, 1, 3, 7, 10, 1, 3, 7, 10, 1, 8},
-        {8, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 1, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 8},
-        {3, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 0, 3, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4}};
-
-// for bitmap graphics
-
-HBITMAP hvazbmp[24];
-BITMAP vazbmp[24];
-
-HBITMAP hghostbmp[44]; // blue 0-7, green 8-15, red 16-23
-BITMAP ghostbmp[44];   // scared 24-31, demonic 32-39, eyes 40-43
-
-HBITMAP hmazebmp[30]; // 10 for blue, 10 for green, 10 for red walls etc
-BITMAP mazebmp[30];
-
-HBITMAP hfoodbmp[20];
-BITMAP foodbmp[20];
-
-HDC bmp_dc = NULL; // temp dc for bitmap
-
-//
-// particle direction X (sin) and Y (-cos)
-//
-
-float xdir[32] = {0.0f, 0.1951f, 0.3827f, 0.5556f, 0.7071f, 0.8315f, 0.9239f, 0.9808f,
-                  1.0f, 0.9808f, 0.9239f, 0.8315f, 0.7071f, 0.5556f, 0.3827f, 0.1951f,
-                  0.0f, -0.1951f, -0.3827f, -0.5556f, -0.7071f, -0.8315f, -0.9239f, -0.9808f,
-                  -1.0f, -0.9808f, -0.9239f, -0.8315f, -0.7071f, -0.5556f, -0.3827f, -0.1951f};
-
-float ydir[32] = {-1.0f, -0.9808f, -0.9239f, -0.8315f, -0.7071f, -0.5556f, -0.3827f, -0.1951f,
-                  0.0f, 0.1951f, 0.3827f, 0.5556f, 0.7071f, 0.8315f, 0.9239f, 0.9808f,
-                  1.0f, 0.9808f, 0.9239f, 0.8315f, 0.7071f, 0.5556f, 0.3827f, 0.1951f,
-                  0.0f, -0.1951f, -0.3827f, -0.5556f, -0.7071f, -0.8315f, -0.9239f, -0.9808f};
-
-typedef struct
-{
-    int state; // VAZ_NORMAL or DYING
-    int x;     // x y top-left
-    int y;
-    int xm;
-    int ym;
-    int tomove; // where Vaz wants to move
-    int mouth;  // mouth position 0 to 5 for bmp = dir + mouth
-    int dir;    // facing direction
-    BOOL gun;   // TRUE = has gun and can fire if VAZ_NORMAL, FALSE = no gun
-    int count;  // for dying positions and fire count
-
-} VAZ_STRUCT;
-
-VAZ_STRUCT Vaz;
-
-typedef struct
-{
-    BOOL alive; // TRUE = exist, FALSE = not
-    int color;  // GHOST_BLUE, _GREEN, _RED -- note: must remember original color
-    int chase;  // CHASE_NORMAL, _AWAY, _DEMONIC, _EYES
-    int x;      // x y top-left
-    int y;
-    int xm;
-    int ym;
-    BOOL jailed; // TRUE = in jail, FALSE = normal chase
-    int count;   // for flashing during run away, for jail time during jail
-
-} GHOST_STRUCT;
-
-GHOST_STRUCT Ghosts[MAX_GHOSTS];
-
-typedef struct
-{
-    BOOL alive; // TRUE = exist, FALSE = not
-    int x;      // x y center
-    int y;
-    int count; // for size of flashing power pill 0 to 15
-
-} POWER_STRUCT;
-
-POWER_STRUCT Power[MAX_POWER];
-
-typedef struct
-{
-    BOOL alive; // TRUE = exist, FALSE = not
-    int x;      // x y top-left
-    int y;
-    int xm;
-    int ym;
-    int count; // duration of bullet, start at BULLET_DURATION
-
-} BULLET_STRUCT;
-
-BULLET_STRUCT Bullets[MAX_BULLETS];
-
-typedef struct
-{
-    BOOL alive; // TRUE = exist, FALSE = not
-    int type;   // type of food 0 to 19
-    int x;      // x y top-left
-    int y;
-    int xm;
-    int ym;
-    int count; // how long food lasts
-
-} FOOD_STRUCT;
-
-FOOD_STRUCT Food[MAX_FOOD];
-
-typedef struct
-{
-    BOOL alive; // TRUE = exist, FALSE = not
-    int amount; // amount of score
-    int x;      // x y top-left
-    int y;
-    int count; // how long score lasts before fade out
-
-} SCORE_STRUCT;
-
-SCORE_STRUCT Scores[MAX_SCORES];
-
-typedef struct
-{
-    BOOL alive; // TRUE = exist, FALSE = not
-    float x;    // x y center
-    float y;
-    float xm;
-    float ym;
-    int duration; // duration of particle, keep on screen then fade out
-
-} PARTICLE_STRUCT;
-
-PARTICLE_STRUCT Particles[MAX_PARTICLES];
-
-// FUNCTIONS //////////////////////////////////////////////
-
-void GameInit(); // game initialization, go full screen etc
-void GameMain(); // game main loop and processing
-void GameQuit(); // game quit and clean up
-
-void DisplayScore(); // display text score/level bottom of screen
-
-void SetMaze();
-void DrawMaze();
-
-void SetVaz();
-void MoveVaz();
-
-void SetGhosts();
-void MoveGhosts();
-
-void InsertFood();
-void MoveFood();
-
-void InsertBullet();
-void MoveBullets();
-
-void InsertScore(int, int, int); // insert score at x,y with score amount
-void DrawScores();
-
-void InsertParticles(int, int, int); // particle explosion at x,y of type t
-void MoveParticles();
-
-BOOL SoundInit();
-void SoundQuit();
-
-BOOL JoyInit();
-void JoyQuit();
-void JoyStatus();
-
-void SetInterm();  // set up intermission
-BOOL AnimInterm(); // return TRUE when done anim, otherwise FALSE
-
-void FlashPower();
-
-void CheckCollisions(); // Check for all potential Collisions
-void ResetAll();        // Reset (clear) all ghosts, food, bullets, scores, particles
-
-int XMazeToXScreen(int); // convert a maze column to x pixel position
-int YMazeToYScreen(int); // convert a maze row    to y pixel position
-
-int XScreenToXMaze(int); // convert x pixel to maze column
-int YScreenToYMaze(int); // convert y pixel to maze row
-
-BOOL CanMove(int, int); // check if valid move (not inside wall)
-
 // WINPROC ////////////////////////////////////////////////
 
 LRESULT CALLBACK WinProc(HWND hwnd,
@@ -664,13 +200,13 @@ void GameInit()
 
     // temporary change to full screen mode
 
-    ZeroMemory(&game_screen, sizeof(game_screen)); // clear out size of DEVMODE struct
+    // ZeroMemory(&game_screen, sizeof(game_screen)); // clear out size of DEVMODE struct
 
-    game_screen.dmSize = sizeof(game_screen);
-    game_screen.dmPelsWidth = WINDOW_WIDTH;
-    game_screen.dmPelsHeight = WINDOW_HEIGHT;
-    game_screen.dmBitsPerPel = 16;
-    game_screen.dmFields = 2560 | 1440 | 32;
+    // game_screen.dmSize = sizeof(game_screen);
+    // game_screen.dmPelsWidth = WINDOW_WIDTH;
+    // game_screen.dmPelsHeight = WINDOW_HEIGHT;
+    // game_screen.dmBitsPerPel = 16;
+    // game_screen.dmFields = 2560 | 1440 | 32;
 
     // CDS_FULLSCREEN
     // ChangeDisplaySettings(&game_screen, 0);
@@ -1103,8 +639,16 @@ void GameMain()
             game_level = 1;
             game_state = GAME_STATE_GAME_INIT;
             game_difficulty = DIFFICULTY_EASY;
-            /* if (sound_ok)
-                IDirectSoundBuffer_Play(game_sound_open1, 0, 0, NULL); */
+            if (sound_ok)
+            {
+                if (waveOutput = (waveOutWrite(game_sound_main, game_sound_open1_hdr_lp, sizeof(WAVEHDR))) != MMSYSERR_NOERROR)
+                {
+                    TCHAR szBuffer[1024];
+                    waveOutGetErrorText(waveOutput, &szBuffer, 1024);
+                    MessageBox(game_window, szBuffer, "Wave Out Prepare Header Error", MB_OK | MB_ICONEXCLAMATION);
+                    return FALSE;
+                }
+            }
         }
 
         if (KEYDOWN(50))
@@ -3440,132 +2984,186 @@ void MoveParticles()
 
 BOOL SoundInit()
 {
-    static WAVEOUTCAPS devCaps;
-    static WAVEFORMAT waveformat;
+    WAVEOUTCAPS devCaps;
+    PCMWAVEFORMAT pcmWaveformat;
+    DWORD soundDataSize = 0;
+    
+    game_sound_open1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\OPEN1.WAV"));
+    game_sound_open2 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\OPEN2.WAV"));
+    game_sound_death1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\DEATH1.WAV"));
+    game_sound_death1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\DEATH2.WAV"));
+    game_sound_eat1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT1.WAV"));
+    game_sound_eat2 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT2.WAV"));
+    game_sound_eat3 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT3.WAV"));
+    game_sound_eat4 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT4.WAV"));
+    game_sound_eat5 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT5.WAV"));
+    game_sound_eat6 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT6.WAV"));
+    game_sound_eat7 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT7.WAV"));
+    game_sound_eat8 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT8.WAV"));
+    game_sound_extra = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EXTRA.WAV"));
+    game_sound_fire = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\FIRE.WAV"));
+    game_sound_ghosteat = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\GHOSTEAT.WAV"));
+    game_sound_ghosteyes = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\GHOSTEYES.WAV"));
+    game_sound_happy = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\HAPPY.WAV"));
+    game_sound_hurl = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\HURL.WAV"));
+    game_sound_interm1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\INTERM1.WAV"));
+    game_sound_interm2 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\INTERM2.WAV"));
+    game_sound_interm3 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\INTERM3.WAV"));
+    game_sound_interm4 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\INTERM4.WAV"));
+    game_sound_munch = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\MUNCH.WAV"));
+    game_sound_power = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\POWER.WAV"));
+    game_sound_siren1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\SIREN1.WAV"));
+    game_sound_siren2 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\SIREN2.WAV"));
+    game_sound_siren3 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\SIREN3.WAV"));
+    game_sound_siren4 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\SIREN4.WAV"));
+    game_sound_siren5 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\SIREN5.WAV"));
 
-    if (waveOutGetDevCaps(WAVE_MAPPER, &devCaps, sizeof(WAVEOUTCAPS)) != MMSYSERR_NOERROR)
+    // Initialize data buffer and lock pointer
+    soundDataSize = SoundFileCheck(game_sound_open1, &game_sound_open1_format);
+
+    if ((waveOutput = waveOutOpen(&game_sound_main, WAVE_MAPPER, &game_sound_open1_format, 0, 0, WAVE_FORMAT_QUERY)) != MMSYSERR_NOERROR)
     {
-        MessageBox(game_window, "Sound could not be initialized -- WaveOut Device Capabilities Get Error", "Sound Error", MB_OK);
+        TCHAR szBuffer[1024];
+        waveOutGetErrorText(waveOutput, &szBuffer, 1024);
+        MessageBox(game_window, szBuffer, "Wave Out Open Error", MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
+    if ((waveOutput = waveOutOpen(&game_sound_main, WAVE_MAPPER, &game_sound_open1_format, (DWORD) game_window, 0, CALLBACK_WINDOW)) != MMSYSERR_NOERROR)
+    {
+        TCHAR szBuffer[1024];
+        waveOutGetErrorText(waveOutput, &szBuffer, 1024);
+        MessageBox(game_window, szBuffer, "Wave Out Open Error", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
 
-    // Set wave playback device info
-    waveformat.wFormatTag = WAVE_FORMAT_PCM;
-    waveformat.nChannels = devCaps.wChannels;
 
-    if (devCaps.dwFormats == WAVE_FORMAT_4S16)
+    game_sound_open1_handle = GlobalAlloc(GMEM_MOVEABLE | GMEM_SHARE, soundDataSize);
+    if (!game_sound_open1_handle)
     {
-        waveformat.nChannels = 2;
-        waveformat.nBlockAlign = 4;
-        waveformat.nSamplesPerSec = 44100;
-        waveformat.nAvgBytesPerSec = 176400;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_4M16)
-    {
-        waveformat.nChannels = 1;
-        waveformat.nBlockAlign = 2;
-        waveformat.nSamplesPerSec = 44100;
-        waveformat.nAvgBytesPerSec = 88200;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_4S08)
-    {
-        waveformat.nChannels = 2;
-        waveformat.nBlockAlign = 2;
-        waveformat.nSamplesPerSec = 44100;
-        waveformat.nAvgBytesPerSec = 88200;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_4M08)
-    {
-        waveformat.nChannels = 1;
-        waveformat.nBlockAlign = 1;
-        waveformat.nSamplesPerSec = 44100;
-        waveformat.nAvgBytesPerSec = 44100;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_2S16)
-    {
-        waveformat.nChannels = 2;
-        waveformat.nBlockAlign = 4;
-        waveformat.nSamplesPerSec = 22050;
-        waveformat.nAvgBytesPerSec = 88200;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_2M16)
-    {
-        waveformat.nChannels = 1;
-        waveformat.nBlockAlign = 2;
-        waveformat.nSamplesPerSec = 22050;
-        waveformat.nAvgBytesPerSec = 44100;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_2S08)
-    {
-        waveformat.nChannels = 2;
-        waveformat.nBlockAlign = 2;
-        waveformat.nSamplesPerSec = 22050;
-        waveformat.nAvgBytesPerSec = 44100;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_2M08)
-    {
-        waveformat.nChannels = 1;
-        waveformat.nBlockAlign = 1;
-        waveformat.nSamplesPerSec = 22050;
-        waveformat.nAvgBytesPerSec = 22050;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_1S16)
-    {
-        waveformat.nChannels = 2;
-        waveformat.nBlockAlign = 4;
-        waveformat.nSamplesPerSec = 11025;
-        waveformat.nAvgBytesPerSec = 44100;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_1M16)
-    {
-        waveformat.nChannels = 1;
-        waveformat.nBlockAlign = 2;
-        waveformat.nSamplesPerSec = 11025;
-        waveformat.nAvgBytesPerSec = 22050;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_1S08)
-    {
-        waveformat.nChannels = 2;
-        waveformat.nBlockAlign = 2;
-        waveformat.nSamplesPerSec = 11025;
-        waveformat.nAvgBytesPerSec = 22050;
-    } else if (devCaps.dwFormats == WAVE_FORMAT_1M08)
-    {
-        waveformat.nChannels = 1;
-        waveformat.nBlockAlign = 1;
-        waveformat.nSamplesPerSec = 11025;
-        waveformat.nAvgBytesPerSec = 11025;
-    }
-
-    if (waveOutOpen(&game_sound_main, WAVE_MAPPER, &waveformat, (DWORD) game_window, 0, CALLBACK_WINDOW) != MMSYSERR_NOERROR)
-    {
-        MessageBox(game_window, "Sound could not be initialized -- WaveOut Open Error", "Sound Error", MB_OK);
+        MessageBox(game_window, "Out of memory.", NULL, MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
-
-    game_sound_death1 = mmioOpen(MAKEINTRESOURCE(SOUND_DEATH1), 0, MMIO_READ);
-    game_sound_death2 = mmioOpen(MAKEINTRESOURCE(SOUND_DEATH2), 0, MMIO_READ);
-    game_sound_eat1 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT1), 0, MMIO_READ);
-    game_sound_eat2 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT2), 0, MMIO_READ);
-    game_sound_eat3 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT3), 0, MMIO_READ);
-    game_sound_eat4 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT4), 0, MMIO_READ);
-    game_sound_eat5 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT5), 0, MMIO_READ);
-    game_sound_eat6 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT6), 0, MMIO_READ);
-    game_sound_eat7 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT7), 0, MMIO_READ);
-    game_sound_eat8 = mmioOpen(MAKEINTRESOURCE(SOUND_EAT8), 0, MMIO_READ);
-    game_sound_extra = mmioOpen(MAKEINTRESOURCE(SOUND_EXTRA), 0, MMIO_READ);
-    game_sound_fire = mmioOpen(MAKEINTRESOURCE(SOUND_FIRE), 0, MMIO_READ);
-    game_sound_ghosteat = mmioOpen(MAKEINTRESOURCE(SOUND_GHOSTEAT), 0, MMIO_READ);
-    game_sound_ghosteyes = mmioOpen(MAKEINTRESOURCE(SOUND_GHOSTEYES), 0, MMIO_READ);
-    game_sound_happy = mmioOpen(MAKEINTRESOURCE(SOUND_HAPPY), 0, MMIO_READ);
-    game_sound_hurl = mmioOpen(MAKEINTRESOURCE(SOUND_HURL), 0, MMIO_READ);
-    game_sound_interm1 = mmioOpen(MAKEINTRESOURCE(SOUND_INTERM1), 0, MMIO_READ);
-    game_sound_interm2 = mmioOpen(MAKEINTRESOURCE(SOUND_INTERM2), 0, MMIO_READ);
-    game_sound_interm3 = mmioOpen(MAKEINTRESOURCE(SOUND_INTERM3), 0, MMIO_READ);
-    game_sound_interm4 = mmioOpen(MAKEINTRESOURCE(SOUND_INTERM4), 0, MMIO_READ);
-    game_sound_munch = mmioOpen(MAKEINTRESOURCE(SOUND_MUNCH), 0, MMIO_READ);
-    game_sound_open1 = mmioOpen(MAKEINTRESOURCE(SOUND_OPEN1), 0, MMIO_READ);
-    game_sound_open2 = mmioOpen(MAKEINTRESOURCE(SOUND_OPEN2), 0, MMIO_READ);
-    game_sound_power = mmioOpen(MAKEINTRESOURCE(SOUND_POWER), 0, MMIO_READ);
-    game_sound_siren1 = mmioOpen(MAKEINTRESOURCE(SOUND_SIREN1), 0, MMIO_READ);
-    game_sound_siren2 = mmioOpen(MAKEINTRESOURCE(SOUND_SIREN2), 0, MMIO_READ);
-    game_sound_siren3 = mmioOpen(MAKEINTRESOURCE(SOUND_SIREN3), 0, MMIO_READ);
-    game_sound_siren4 = mmioOpen(MAKEINTRESOURCE(SOUND_SIREN4), 0, MMIO_READ);
-    game_sound_siren5 = mmioOpen(MAKEINTRESOURCE(SOUND_SIREN5), 0, MMIO_READ);
+    if ((game_sound_open1_pointer = GlobalLock(game_sound_open1_handle)) == NULL) {
+        MessageBox(game_window, "Failed to lock memory for data chunk.", NULL, MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    // Allocate wav data chunk into buffer
+    if (mmioRead(game_sound_open1, game_sound_open1_pointer, soundDataSize) != (LRESULT)soundDataSize)
+    {
+        MessageBox(game_window, "MMIO Read Data Chunk to Buffer Error", "MMIO Read Error", MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
+    // Initialize wave header buffer and lock pointer
+    game_sound_open1_hdr = GlobalAlloc(GMEM_MOVEABLE | GMEM_SHARE, (DWORD) sizeof(WAVEHDR));
+    if (game_sound_open1_hdr == NULL)
+    {
+        MessageBox(game_window, "Not enough memory for header.", NULL, MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
+    game_sound_open1_hdr_lp = (LPWAVEHDR) GlobalLock(game_sound_open1_hdr);
+    if (game_sound_open1_hdr_lp == NULL) {
+        MessageBox(game_window, "Failed to lock memory for header.", NULL, MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
+    // Set wave header and prepare waveOut for playback
+    game_sound_open1_hdr_lp->lpData = game_sound_open1_pointer;
+    game_sound_open1_hdr_lp->dwBufferLength = soundDataSize;
+    game_sound_open1_hdr_lp->dwFlags = 0L;
+    game_sound_open1_hdr_lp->dwLoops = 0L;
+    if (waveOutput = (waveOutPrepareHeader(game_sound_main, game_sound_open1_hdr_lp, sizeof(WAVEHDR))) != MMSYSERR_NOERROR)
+    {
+        TCHAR szBuffer[1024];
+        waveOutGetErrorText(waveOutput, &szBuffer, 1024);
+        MessageBox(game_window, szBuffer, "Wave Out Prepare Header Error", MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
 
     return TRUE;
 
-} // END OF SoundInit
+}
+
+///////////////////////////////////////////////////////
+//
+// Open handle for specified sound file
+//
+///////////////////////////////////////////////////////
+
+HMMIO SoundFileInit(LPSTR path)
+{
+    HMMIO soundFileHandle = NULL;
+
+    if ((soundFileHandle = mmioOpen(path, NULL, MMIO_READ | MMIO_ALLOCBUF)) == NULL)
+    {
+        MessageBox(game_window, path, "Error opening sound file in path", MB_OK | MB_ICONEXCLAMATION);
+        return NULL;
+    }
+
+    return soundFileHandle;
+} // END OF SoundFileInit
+
+///////////////////////////////////////////////////////
+//
+// Check wav sound file headers (taken from Win32 SDK doc)
+//
+///////////////////////////////////////////////////////
+
+DWORD SoundFileCheck(HMMIO soundFile, WAVEFORMAT* soundFormat)
+{
+    MMCKINFO    mmckinfoParent;  /* parent chunk information structure */
+    MMCKINFO    mmckinfoSubchunk; /* subchunk information structure    */
+    DWORD       dwFmtSize;        /* size of "fmt" chunk               */
+    DWORD       dwDataSize;       /* size of "data" chunk              */
+    // WAVEFORMAT  *pFormat;         /* pointer to memory for "fmt" chunk */
+
+    /*
+     * Locate a "RIFF" chunk with a "WAVE" form type
+     * to make sure the file is a WAVE file.
+     */
+    mmckinfoParent.fccType = mmioFOURCC('W', 'A', 'V', 'E');
+    if (mmioDescend(soundFile, (LPMMCKINFO) &mmckinfoParent, NULL, MMIO_FINDRIFF))
+    {
+        MessageBox(game_window, "This is not a WAVE file.", "WAV check error!", MB_OK | MB_ICONEXCLAMATION);
+        return 0;
+    }
+
+    /*
+     * Find the "fmt " chunk (form type "fmt "); it must be
+     * a subchunk of the "RIFF" parent chunk.
+     */
+    mmckinfoSubchunk.ckid = mmioFOURCC('f', 'm', 't', ' ');
+    if (mmioDescend(soundFile, &mmckinfoSubchunk, &mmckinfoParent, MMIO_FINDCHUNK))
+    {
+        MessageBox(game_window, "WAVE file has no \"fmt\" chunk", "WAV check error!", MB_OK | MB_ICONEXCLAMATION);
+        return 0;
+    }
+
+    /*
+     * Get the size of the "fmt " chunk--allocate and lock memory for it.
+     */
+    dwFmtSize = mmckinfoSubchunk.cksize;
+    /* Read the "fmt " chunk. */
+    if (mmioRead(soundFile, (HPSTR) soundFormat, dwFmtSize) != (LRESULT)dwFmtSize)
+    {
+        MessageBox(game_window, "Failed to read format chunk.", "WAV check error!", MB_OK | MB_ICONEXCLAMATION);
+        return 0;
+    }
+
+    /* Ascend out of the "fmt " subchunk. */
+    mmioAscend(soundFile, &mmckinfoSubchunk, 0);
+
+    /*
+     * Find the data subchunk. The current file position
+     * should be at the beginning of the data chunk.
+     */
+    mmckinfoSubchunk.ckid = mmioFOURCC('d', 'a', 't', 'a');
+    if (mmioDescend(soundFile, &mmckinfoSubchunk, &mmckinfoParent, MMIO_FINDCHUNK))
+    {
+        MessageBox(game_window, "WAVE file has no data chunk.", "WAV check error!", MB_OK | MB_ICONEXCLAMATION);
+        return 0;
+    }
+
+    return mmckinfoSubchunk.cksize;
+} // END OF SoundFileCheck
 
 //////////////////////////////////////////////////////
 //
@@ -3600,7 +3198,13 @@ void SoundQuit()
         mmioClose(game_sound_interm3, 0);
         mmioClose(game_sound_interm4, 0);
         mmioClose(game_sound_munch, 0);
+
+        GlobalUnlock(game_sound_open1_handle);
+        GlobalFree(game_sound_open1_handle);
+        GlobalUnlock(game_sound_open1_hdr);
+        GlobalFree(game_sound_open1_hdr);
         mmioClose(game_sound_open1, 0);
+
         mmioClose(game_sound_open2, 0);
         mmioClose(game_sound_power, 0);
         mmioClose(game_sound_siren1, 0);
@@ -3609,7 +3213,8 @@ void SoundQuit()
         mmioClose(game_sound_siren4, 0);
         mmioClose(game_sound_siren5, 0);
 
-        // THEN RELEASE MAIN DIRECT SOUND OBJECT
+        // THEN RELEASE MAIN WAVE SOUND HANDLE
+        waveOutReset(game_sound_main);
         waveOutClose(game_sound_main);
     }
 
