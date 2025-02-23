@@ -14,10 +14,8 @@
 #include <stdio.h>
 #include <math.h>
 
-// #include <dsound.h>      // include DirectSound
-// #include "dsutil.h"      // for LoadSoundBuffer()
-
 #include "main.h" // sounds and bitmap resources
+#include "sound.h"
 
 // WINPROC ////////////////////////////////////////////////
 
@@ -55,6 +53,32 @@ LRESULT CALLBACK WinProc(HWND hwnd,
         PostQuitMessage(0); // kill the application, sends a WM_QUIT message
 
         return (0); // return success
+    }
+    break;
+
+    case WM_CLOSE:
+    {
+        GameQuit(); // game quit function and clean up before exit called here
+        DestroyWindow(hwnd);
+    }
+    break;
+
+    case WM_TIMER:
+    {
+        if (wparam == TIMER_ID) {
+            // if we're not in pause state, erase the back buffer
+            if (game_state != GAME_STATE_GAME_PAUSE)
+                FillRect(back_dc, &back_rect, black_brush);
+
+            GameMain(); // game main processing function called here
+
+            // copy back buffer to front buffer
+            BitBlt(game_dc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, back_dc, 0, 0, SRCCOPY);
+
+            // check for <ESC> key and send quit game
+            if (KEYDOWN(VK_ESCAPE))
+                SendMessage(hwnd, WM_CLOSE, 0, 0);
+        }
     }
     break;
 
@@ -108,7 +132,7 @@ int WINAPI WinMain(HINSTANCE hinstance,
     winclass.cbClsExtra = 0;
     winclass.cbWndExtra = 0;
     winclass.hInstance = hinstance;
-    winclass.hIcon = LoadIcon(game_instance, IDI_APPLICATION);
+    winclass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     // winclass.hIconSm = LoadIcon(game_instance, IDI_APPLICATION);
     winclass.hCursor = LoadCursor(NULL, IDC_ARROW);
     winclass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
@@ -120,66 +144,34 @@ int WINAPI WinMain(HINSTANCE hinstance,
         return (0);
 
     // create the window
-    if (!(hwnd = CreateWindow(WINDOW_CLASS_NAME,     // class
-                              "VazPac",              // title
-                              WS_POPUP | WS_VISIBLE, // use POPUP for full screen
-                              0, 0,                  // initial game window x,y
-                              WINDOW_WIDTH,          // initial game width
-                              WINDOW_HEIGHT,         // initial game height
-                              NULL,                  // handle to parent
-                              NULL,                  // handle to menu
-                              hinstance,             // instance of this application
-                              NULL)))                // extra creation parms
+    if (!(hwnd = CreateWindow(WINDOW_CLASS_NAME,            // class
+                              TEXT("VazPac"),               // title
+                              WS_OVERLAPPEDWINDOW,          // use POPUP for full screen
+                              CW_USEDEFAULT, CW_USEDEFAULT, // initial game window x,y
+                              WINDOW_WIDTH,                 // initial game width
+                              WINDOW_HEIGHT,                // initial game height
+                              NULL,                         // handle to parent
+                              NULL,                         // handle to menu
+                              hinstance,                    // instance of this application
+                              NULL)))                       // extra creation parms
         return (0);
 
     // save the game window handle
     game_window = hwnd;
 
+    ShowWindow(hwnd, ncmdshow);
+    UpdateWindow(hwnd);
+
     GameInit(); // game initialization function called here
 
+    // Set up a timer
+    SetTimer(hwnd, TIMER_ID, GAME_SPEED, NULL);
+
     // enter main event loop using PeekMessage() to retrieve messages
-
-    while (TRUE)
-    {
-
-        // get initial tick count to keep game speed constant
-        DWORD start_tick = GetTickCount();
-
-        // is there a message in queue, if so get it
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-        {
-            // test if this is a quit
-            if (msg.message == WM_QUIT)
-                break;
-
-            // translate any accelerator keys
-            TranslateMessage(&msg);
-
-            // send the message to WinProc
-            DispatchMessage(&msg);
-
-        } // end if
-
-        // if we're not in pause state, erase the back buffer
-        if (game_state != GAME_STATE_GAME_PAUSE)
-            FillRect(back_dc, &back_rect, black_brush);
-
-        GameMain(); // game main processing function called here
-
-        // copy back buffer to front buffer
-        BitBlt(game_dc, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, back_dc, 0, 0, SRCCOPY);
-
-        // check for <ESC> key and send quit game
-        if (KEYDOWN(VK_ESCAPE))
-            SendMessage(hwnd, WM_CLOSE, 0, 0);
-
-        // wait until we hit correct game speed frame rate
-        while ((GetTickCount() - start_tick) < GAME_SPEED)
-            ;
-
-    } // end while
-
-    GameQuit(); // game quit function and clean up before exit called here
+    while(GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
 
     return (msg.wParam); // return to Windows
 
@@ -200,13 +192,13 @@ void GameInit()
 
     // temporary change to full screen mode
 
-    // ZeroMemory(&game_screen, sizeof(game_screen)); // clear out size of DEVMODE struct
+    ZeroMemory(&game_screen, sizeof(game_screen)); // clear out size of DEVMODE struct
 
-    // game_screen.dmSize = sizeof(game_screen);
-    // game_screen.dmPelsWidth = WINDOW_WIDTH;
-    // game_screen.dmPelsHeight = WINDOW_HEIGHT;
-    // game_screen.dmBitsPerPel = 16;
-    // game_screen.dmFields = 2560 | 1440 | 32;
+    game_screen.dmSize = sizeof(game_screen);
+    game_screen.dmPelsWidth = WINDOW_WIDTH;
+    game_screen.dmPelsHeight = WINDOW_HEIGHT;
+    game_screen.dmBitsPerPel = 16;
+    game_screen.dmFields = 2560 | 1440 | 32;
 
     // CDS_FULLSCREEN
     // ChangeDisplaySettings(&game_screen, 0);
@@ -641,13 +633,7 @@ void GameMain()
             game_difficulty = DIFFICULTY_EASY;
             if (sound_ok)
             {
-                if (waveOutput = (waveOutWrite(game_sound_main, game_sound_open1_hdr_lp, sizeof(WAVEHDR))) != MMSYSERR_NOERROR)
-                {
-                    TCHAR szBuffer[1024];
-                    waveOutGetErrorText(waveOutput, &szBuffer, 1024);
-                    MessageBox(game_window, szBuffer, "Wave Out Prepare Header Error", MB_OK | MB_ICONEXCLAMATION);
-                    return FALSE;
-                }
+                SoundPlayback(&game_sound_open1, FALSE);
             }
         }
 
@@ -656,8 +642,8 @@ void GameMain()
             game_level = 1;
             game_state = GAME_STATE_GAME_INIT;
             game_difficulty = DIFFICULTY_HARD;
-            /* if (sound_ok)
-                IDirectSoundBuffer_Play(game_sound_interm4, 0, 0, NULL); */
+            if (sound_ok)
+                SoundPlayback(&game_sound_interm4, FALSE);
         }
     }
     break;
@@ -730,13 +716,13 @@ void GameMain()
         ////////////////////////////////////
         if (sound_ok)
         {
-            /* IDirectSoundBuffer_Stop(game_sound_power);
-            IDirectSoundBuffer_Stop(game_sound_ghosteyes);
-            IDirectSoundBuffer_Stop(game_sound_siren1);
-            IDirectSoundBuffer_Stop(game_sound_siren2);
-            IDirectSoundBuffer_Stop(game_sound_siren3);
-            IDirectSoundBuffer_Stop(game_sound_siren4);
-            IDirectSoundBuffer_Stop(game_sound_siren5); */
+            SoundHalt(&game_sound_power);
+            SoundHalt(&game_sound_ghosteyes);
+            SoundHalt(&game_sound_siren1);
+            SoundHalt(&game_sound_siren2);
+            SoundHalt(&game_sound_siren3);
+            SoundHalt(&game_sound_siren4);
+            SoundHalt(&game_sound_siren5);
         }
     }
     break;
@@ -763,10 +749,12 @@ void GameMain()
         {
             if (sound_ok)
             {
-                /* if (game_level == 3)
-                    IDirectSoundBuffer_Play(game_sound_open2, 0, 0, NULL);
-                if (game_level == 6)
-                    IDirectSoundBuffer_Play(game_sound_open1, 0, 0, NULL); */
+                if (game_level == 3) {
+                    SoundPlayback(&game_sound_open2, FALSE);
+                }
+                if (game_level == 6) {
+                    SoundPlayback(&game_sound_open1, FALSE);
+                }
             }
 
             game_state = GAME_STATE_GAME_RUN;
@@ -1150,16 +1138,16 @@ void MoveVaz()
 
             if (level_countdown == 1 && sound_ok) // set initial siren sound
             {
-                /* if (pellets_left > 175)
-                    IDirectSoundBuffer_Play(game_sound_siren1, 0, 0, DSBPLAY_LOOPING);
+                if (pellets_left > 175)
+                    SoundPlayback(&game_sound_siren1, TRUE);
                 if (pellets_left < 176 && pellets_left > 125)
-                    IDirectSoundBuffer_Play(game_sound_siren2, 0, 0, DSBPLAY_LOOPING);
+                    SoundPlayback(&game_sound_siren2, TRUE);
                 if (pellets_left < 126 && pellets_left > 75)
-                    IDirectSoundBuffer_Play(game_sound_siren3, 0, 0, DSBPLAY_LOOPING);
+                    SoundPlayback(&game_sound_siren3, TRUE);
                 if (pellets_left < 76 && pellets_left > 25)
-                    IDirectSoundBuffer_Play(game_sound_siren4, 0, 0, DSBPLAY_LOOPING);
+                    SoundPlayback(&game_sound_siren4, TRUE);
                 if (pellets_left < 26)
-                    IDirectSoundBuffer_Play(game_sound_siren5, 0, 0, DSBPLAY_LOOPING); */
+                    SoundPlayback(&game_sound_siren5, TRUE);
             } // end if set siren sound
 
         } // end else
@@ -1191,10 +1179,10 @@ void MoveVaz()
             {
                 if (sound_ok)
                 {
-                    /* if (game_level < 3 || game_level > 5)
-                        IDirectSoundBuffer_Play(game_sound_death1, 0, 0, NULL);
+                    if (game_level < 3 || game_level > 5)
+                        SoundPlayback(&game_sound_death1, FALSE);
                     else
-                        IDirectSoundBuffer_Play(game_sound_death2, 0, 0, NULL); */
+                        SoundPlayback(&game_sound_death2, FALSE);
                 }
             }
 
@@ -2258,8 +2246,8 @@ void MoveGhosts()
                     Ghosts[i].x = XMazeToXScreen(XScreenToXMaze(Ghosts[i].x));
                     Ghosts[i].y = YMazeToYScreen(YScreenToYMaze(Ghosts[i].y));
                     InsertParticles(Ghosts[i].x + 15, Ghosts[i].y + 15, 2);
-                    /* if (sound_ok && game_state == GAME_STATE_GAME_RUN)
-                        IDirectSoundBuffer_Play(game_sound_happy, 0, 0, NULL); */
+                    if (sound_ok && game_state == GAME_STATE_GAME_RUN)
+                        SoundPlayback(&game_sound_happy, FALSE);
                 }
             }
 
@@ -2317,8 +2305,8 @@ void MoveGhosts()
                 Ghosts[i].ym = 0;
                 Ghosts[i].jailed = TRUE;
                 Ghosts[i].count = (rand() % 300) + 10;
-                /* if (sound_ok)
-                    IDirectSoundBuffer_Stop(game_sound_ghosteyes); */
+                if (sound_ok)
+                    SoundHalt(&game_sound_ghosteyes);
             }
         }
 
@@ -2340,8 +2328,8 @@ void MoveGhosts()
     } // end of for loop
 
     // stop power pill repeat sound if no ghosts are CHASE_AWAY
-    /* if (!sound_power && sound_ok)
-        IDirectSoundBuffer_Stop(game_sound_power); */
+    if (!sound_power && sound_ok)
+        SoundHalt(&game_sound_power);
 
     // switch the feet
     ghost_delay--;
@@ -2762,8 +2750,8 @@ void InsertBullet()
 
             bullet_countdown = BULLET_PAUSE;
 
-            /* if (sound_ok)
-                IDirectSoundBuffer_Play(game_sound_fire, 0, 0, NULL); */
+            if (sound_ok)
+                SoundPlayback(&game_sound_fire, FALSE);
 
             return;
 
@@ -2984,102 +2972,99 @@ void MoveParticles()
 
 BOOL SoundInit()
 {
-    WAVEOUTCAPS devCaps;
-    PCMWAVEFORMAT pcmWaveformat;
-    DWORD soundDataSize = 0;
-    
-    game_sound_open1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\OPEN1.WAV"));
-    game_sound_open2 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\OPEN2.WAV"));
-    game_sound_death1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\DEATH1.WAV"));
-    game_sound_death1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\DEATH2.WAV"));
-    game_sound_eat1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT1.WAV"));
-    game_sound_eat2 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT2.WAV"));
-    game_sound_eat3 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT3.WAV"));
-    game_sound_eat4 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT4.WAV"));
-    game_sound_eat5 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT5.WAV"));
-    game_sound_eat6 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT6.WAV"));
-    game_sound_eat7 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT7.WAV"));
-    game_sound_eat8 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EAT8.WAV"));
-    game_sound_extra = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\EXTRA.WAV"));
-    game_sound_fire = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\FIRE.WAV"));
-    game_sound_ghosteat = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\GHOSTEAT.WAV"));
-    game_sound_ghosteyes = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\GHOSTEYES.WAV"));
-    game_sound_happy = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\HAPPY.WAV"));
-    game_sound_hurl = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\HURL.WAV"));
-    game_sound_interm1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\INTERM1.WAV"));
-    game_sound_interm2 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\INTERM2.WAV"));
-    game_sound_interm3 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\INTERM3.WAV"));
-    game_sound_interm4 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\INTERM4.WAV"));
-    game_sound_munch = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\MUNCH.WAV"));
-    game_sound_power = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\POWER.WAV"));
-    game_sound_siren1 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\SIREN1.WAV"));
-    game_sound_siren2 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\SIREN2.WAV"));
-    game_sound_siren3 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\SIREN3.WAV"));
-    game_sound_siren4 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\SIREN4.WAV"));
-    game_sound_siren5 = SoundFileInit(TEXT(".\\ASSETS\\SOUNDS\\SIREN5.WAV"));
+    initGameSound(&game_sound_open1, TEXT(".\\ASSETS\\SOUNDS\\OPEN1.WAV"));
+    initGameSound(&game_sound_open2, TEXT(".\\ASSETS\\SOUNDS\\OPEN2.WAV"));
+    initGameSound(&game_sound_death1, TEXT(".\\ASSETS\\SOUNDS\\DEATH1.WAV"));
+    initGameSound(&game_sound_death2, TEXT(".\\ASSETS\\SOUNDS\\DEATH2.WAV"));
+    initGameSound(&game_sound_eat1, TEXT(".\\ASSETS\\SOUNDS\\EAT1.WAV"));
+    initGameSound(&game_sound_eat2, TEXT(".\\ASSETS\\SOUNDS\\EAT2.WAV"));
+    initGameSound(&game_sound_eat3, TEXT(".\\ASSETS\\SOUNDS\\EAT3.WAV"));
+    initGameSound(&game_sound_eat4, TEXT(".\\ASSETS\\SOUNDS\\EAT4.WAV"));
+    initGameSound(&game_sound_eat5, TEXT(".\\ASSETS\\SOUNDS\\EAT5.WAV"));
+    initGameSound(&game_sound_eat6, TEXT(".\\ASSETS\\SOUNDS\\EAT6.WAV"));
+    initGameSound(&game_sound_eat7, TEXT(".\\ASSETS\\SOUNDS\\EAT7.WAV"));
+    initGameSound(&game_sound_eat8, TEXT(".\\ASSETS\\SOUNDS\\EAT8.WAV"));
+    initGameSound(&game_sound_extra, TEXT(".\\ASSETS\\SOUNDS\\EXTRA.WAV"));
+    initGameSound(&game_sound_fire, TEXT(".\\ASSETS\\SOUNDS\\FIRE.WAV"));
+    initGameSound(&game_sound_ghosteat, TEXT(".\\ASSETS\\SOUNDS\\GHOSTEAT.WAV"));
+    initGameSound(&game_sound_ghosteyes, TEXT(".\\ASSETS\\SOUNDS\\GHOSTEYES.WAV"));
+    initGameSound(&game_sound_happy, TEXT(".\\ASSETS\\SOUNDS\\HAPPY.WAV"));
+    initGameSound(&game_sound_hurl, TEXT(".\\ASSETS\\SOUNDS\\HURL.WAV"));
+    /*initGameSound(&game_sound_interm1, TEXT(".\\ASSETS\\SOUNDS\\INTERM1.WAV"));
+    initGameSound(&game_sound_interm2, TEXT(".\\ASSETS\\SOUNDS\\INTERM2.WAV"));
+    initGameSound(&game_sound_interm3, TEXT(".\\ASSETS\\SOUNDS\\INTERM3.WAV"));*/
+    initGameSound(&game_sound_interm4, TEXT(".\\ASSETS\\SOUNDS\\INTERM4.WAV"));
+    initGameSound(&game_sound_munch, TEXT(".\\ASSETS\\SOUNDS\\MUNCH.WAV"));
+    initGameSound(&game_sound_power, TEXT(".\\ASSETS\\SOUNDS\\POWER.WAV"));
+    initGameSound(&game_sound_siren1, TEXT(".\\ASSETS\\SOUNDS\\SIREN1.WAV"));
+    initGameSound(&game_sound_siren2, TEXT(".\\ASSETS\\SOUNDS\\SIREN2.WAV"));
+    initGameSound(&game_sound_siren3, TEXT(".\\ASSETS\\SOUNDS\\SIREN3.WAV"));
+    initGameSound(&game_sound_siren4, TEXT(".\\ASSETS\\SOUNDS\\SIREN4.WAV"));
+    initGameSound(&game_sound_siren5, TEXT(".\\ASSETS\\SOUNDS\\SIREN5.WAV"));
 
-    // Initialize data buffer and lock pointer
-    soundDataSize = SoundFileCheck(game_sound_open1, &game_sound_open1_format);
+    return TRUE;
 
-    if ((waveOutput = waveOutOpen(&game_sound_main, WAVE_MAPPER, &game_sound_open1_format, 0, 0, WAVE_FORMAT_QUERY)) != MMSYSERR_NOERROR)
+}
+
+///////////////////////////////////////////////////////
+//
+// Initialize every single field in the GameSound struct
+//
+///////////////////////////////////////////////////////
+void initGameSound(GameSound* soundStruct, LPSTR path) {
+    soundStruct->soundDataSize = 0;
+    soundStruct->hmmio = NULL;
+    soundStruct->handle = NULL;
+    soundStruct->hpstr = NULL;
+    soundStruct->soundOutput = NULL;
+
+    soundStruct->hmmio = SoundFileInit(path);
+    soundStruct->soundDataSize = SoundFileCheck(soundStruct->hmmio, &soundStruct->waveFormat);
+
+    if ((waveOutput = waveOutOpen(&soundStruct->soundOutput, WAVE_MAPPER, &soundStruct->waveFormat, 0, 0, WAVE_FORMAT_QUERY)) != MMSYSERR_NOERROR)
     {
         TCHAR szBuffer[1024];
         waveOutGetErrorText(waveOutput, &szBuffer, 1024);
-        MessageBox(game_window, szBuffer, "Wave Out Open Error", MB_OK | MB_ICONEXCLAMATION);
+        MessageBox(game_window, szBuffer, "Wave Out Open Error 1", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
-    if ((waveOutput = waveOutOpen(&game_sound_main, WAVE_MAPPER, &game_sound_open1_format, (DWORD) game_window, 0, CALLBACK_WINDOW)) != MMSYSERR_NOERROR)
+    if ((waveOutput = waveOutOpen(&soundStruct->soundOutput, WAVE_MAPPER, &soundStruct->waveFormat, (DWORD) game_window, 0, CALLBACK_WINDOW)) != MMSYSERR_NOERROR)
     {
         TCHAR szBuffer[1024];
         waveOutGetErrorText(waveOutput, &szBuffer, 1024);
-        MessageBox(game_window, szBuffer, "Wave Out Open Error", MB_OK | MB_ICONEXCLAMATION);
+        MessageBox(game_window, szBuffer, "Wave Out Open Error 2", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
 
 
-    game_sound_open1_handle = GlobalAlloc(GMEM_MOVEABLE | GMEM_SHARE, soundDataSize);
-    if (!game_sound_open1_handle)
+    soundStruct->handle = GlobalAlloc(GMEM_MOVEABLE | GMEM_SHARE, soundStruct->soundDataSize);
+    if (!soundStruct->handle)
     {
         MessageBox(game_window, "Out of memory.", NULL, MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
-    if ((game_sound_open1_pointer = GlobalLock(game_sound_open1_handle)) == NULL) {
+    if ((soundStruct->hpstr = GlobalLock(soundStruct->handle)) == NULL) {
         MessageBox(game_window, "Failed to lock memory for data chunk.", NULL, MB_OK | MB_ICONEXCLAMATION);
         return;
     }
     // Allocate wav data chunk into buffer
-    if (mmioRead(game_sound_open1, game_sound_open1_pointer, soundDataSize) != (LRESULT)soundDataSize)
+    if (mmioRead(soundStruct->hmmio, soundStruct->hpstr, soundStruct->soundDataSize) != (LRESULT)soundStruct->soundDataSize)
     {
         MessageBox(game_window, "MMIO Read Data Chunk to Buffer Error", "MMIO Read Error", MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
     // Initialize wave header buffer and lock pointer
-    game_sound_open1_hdr = GlobalAlloc(GMEM_MOVEABLE | GMEM_SHARE, (DWORD) sizeof(WAVEHDR));
-    if (game_sound_open1_hdr == NULL)
+    soundStruct->hglobal = GlobalAlloc(GMEM_MOVEABLE | GMEM_SHARE, (DWORD) sizeof(WAVEHDR));
+    if (soundStruct->hglobal == NULL)
     {
         MessageBox(game_window, "Not enough memory for header.", NULL, MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
-    game_sound_open1_hdr_lp = (LPWAVEHDR) GlobalLock(game_sound_open1_hdr);
-    if (game_sound_open1_hdr_lp == NULL) {
+    soundStruct->lpWaveHdr = (LPWAVEHDR) GlobalLock(soundStruct->hglobal);
+    if (soundStruct->lpWaveHdr == NULL) {
         MessageBox(game_window, "Failed to lock memory for header.", NULL, MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
     }
-    // Set wave header and prepare waveOut for playback
-    game_sound_open1_hdr_lp->lpData = game_sound_open1_pointer;
-    game_sound_open1_hdr_lp->dwBufferLength = soundDataSize;
-    game_sound_open1_hdr_lp->dwFlags = 0L;
-    game_sound_open1_hdr_lp->dwLoops = 0L;
-    if (waveOutput = (waveOutPrepareHeader(game_sound_main, game_sound_open1_hdr_lp, sizeof(WAVEHDR))) != MMSYSERR_NOERROR)
-    {
-        TCHAR szBuffer[1024];
-        waveOutGetErrorText(waveOutput, &szBuffer, 1024);
-        MessageBox(game_window, szBuffer, "Wave Out Prepare Header Error", MB_OK | MB_ICONEXCLAMATION);
-        return FALSE;
-    }
-
-    return TRUE;
-
 }
 
 ///////////////////////////////////////////////////////
@@ -3165,6 +3150,90 @@ DWORD SoundFileCheck(HMMIO soundFile, WAVEFORMAT* soundFormat)
     return mmckinfoSubchunk.cksize;
 } // END OF SoundFileCheck
 
+///////////////////////////////////////////////////////
+//
+// Playback sound from given GameSound struct
+//
+///////////////////////////////////////////////////////
+
+void SoundPlayback(GameSound* soundStruct, BOOL loop) {
+    // Set wave header and prepare waveOut for playback
+    soundStruct->lpWaveHdr->lpData = soundStruct->hpstr;
+    soundStruct->lpWaveHdr->dwBufferLength = soundStruct->soundDataSize;
+    if (loop) {
+        soundStruct->lpWaveHdr->dwFlags = WHDR_BEGINLOOP | WHDR_ENDLOOP;
+        soundStruct->lpWaveHdr->dwLoops = -1;
+    }
+    else {
+        soundStruct->lpWaveHdr->dwFlags = 0L;
+        soundStruct->lpWaveHdr->dwLoops = 0L;
+    }
+
+    if (waveOutput = (waveOutPrepareHeader(soundStruct->soundOutput, soundStruct->lpWaveHdr, sizeof(WAVEHDR))) != MMSYSERR_NOERROR)
+    {
+        TCHAR szBuffer[1024];
+        waveOutGetErrorText(waveOutput, &szBuffer, 1024);
+        MessageBox(game_window, szBuffer, "Wave Out Prepare Header Error", MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
+    if (waveOutput = (waveOutWrite(soundStruct->soundOutput, soundStruct->lpWaveHdr, sizeof(WAVEHDR))) != MMSYSERR_NOERROR)
+    {
+        TCHAR szBuffer[1024];
+        waveOutGetErrorText(waveOutput, &szBuffer, 1024);
+        MessageBox(game_window, szBuffer, "Wave Out Prepare Header Error", MB_OK | MB_ICONEXCLAMATION);
+    }
+}
+
+///////////////////////////////////////////////////////
+//
+// Pause sound playback from given GameSound struct
+//
+///////////////////////////////////////////////////////
+
+void SoundPause(GameSound* soundStruct) {
+    waveOutPause(soundStruct->soundOutput);
+}
+
+///////////////////////////////////////////////////////
+//
+// Resume playback from paused sound with a given GameSound struct
+//
+///////////////////////////////////////////////////////
+
+void SoundResume(GameSound* soundStruct) {
+    waveOutRestart(soundStruct->soundOutput);
+}
+
+///////////////////////////////////////////////////////
+//
+// Stop playback from given GameSound struct
+//
+///////////////////////////////////////////////////////
+
+void SoundHalt(GameSound* soundStruct) {
+    waveOutReset(soundStruct->soundOutput);
+    waveOutUnprepareHeader(soundStruct->soundOutput, soundStruct->lpWaveHdr, sizeof(WAVEHDR));
+    // soundStruct->isPlaying = FALSE; 
+}
+
+///////////////////////////////////////////////////////
+//
+// Release from memory every single field in the GameSound struct
+//
+///////////////////////////////////////////////////////
+
+void releaseGameSound(GameSound* soundStruct) {
+    SoundHalt(&soundStruct);
+    GlobalUnlock(soundStruct->handle);
+    GlobalFree(soundStruct->handle);
+    GlobalUnlock(soundStruct->hglobal);
+    GlobalFree(soundStruct->hglobal);
+    mmioClose(soundStruct->hmmio, 0);
+    // THEN RELEASE MAIN WAVE SOUND HANDLE
+    waveOutReset(soundStruct->soundOutput);
+    waveOutClose(soundStruct->soundOutput);
+}
+
 //////////////////////////////////////////////////////
 //
 // Stop all sounds and close multimedia and waveOut
@@ -3174,48 +3243,37 @@ DWORD SoundFileCheck(HMMIO soundFile, WAVEFORMAT* soundFormat)
 void SoundQuit()
 {
     // if sound was set okay, release sound files and handlers
-    if (game_sound_main)
+    if (sound_ok)
     {
-        // FIRST RELEASE WAV BUFFERS
-        mmioClose(game_sound_death1, 0);
-        mmioClose(game_sound_death2, 0);
-        mmioClose(game_sound_eat1, 0);
-        mmioClose(game_sound_eat2, 0);
-        mmioClose(game_sound_eat3, 0);
-        mmioClose(game_sound_eat4, 0);
-        mmioClose(game_sound_eat5, 0);
-        mmioClose(game_sound_eat6, 0);
-        mmioClose(game_sound_eat7, 0);
-        mmioClose(game_sound_eat8, 0);
-        mmioClose(game_sound_extra, 0);
-        mmioClose(game_sound_fire, 0);
-        mmioClose(game_sound_ghosteat, 0);
-        mmioClose(game_sound_ghosteyes, 0);
-        mmioClose(game_sound_happy, 0);
-        mmioClose(game_sound_hurl, 0);
-        mmioClose(game_sound_interm1, 0);
-        mmioClose(game_sound_interm2, 0);
-        mmioClose(game_sound_interm3, 0);
-        mmioClose(game_sound_interm4, 0);
-        mmioClose(game_sound_munch, 0);
-
-        GlobalUnlock(game_sound_open1_handle);
-        GlobalFree(game_sound_open1_handle);
-        GlobalUnlock(game_sound_open1_hdr);
-        GlobalFree(game_sound_open1_hdr);
-        mmioClose(game_sound_open1, 0);
-
-        mmioClose(game_sound_open2, 0);
-        mmioClose(game_sound_power, 0);
-        mmioClose(game_sound_siren1, 0);
-        mmioClose(game_sound_siren2, 0);
-        mmioClose(game_sound_siren3, 0);
-        mmioClose(game_sound_siren4, 0);
-        mmioClose(game_sound_siren5, 0);
-
-        // THEN RELEASE MAIN WAVE SOUND HANDLE
-        waveOutReset(game_sound_main);
-        waveOutClose(game_sound_main);
+        releaseGameSound(&game_sound_open1);
+        releaseGameSound(&game_sound_open2);
+        releaseGameSound(&game_sound_death1);
+        releaseGameSound(&game_sound_death2);
+        releaseGameSound(&game_sound_eat1);
+        releaseGameSound(&game_sound_eat2);
+        releaseGameSound(&game_sound_eat3);
+        releaseGameSound(&game_sound_eat4);
+        releaseGameSound(&game_sound_eat5);
+        releaseGameSound(&game_sound_eat6);
+        releaseGameSound(&game_sound_eat7);
+        releaseGameSound(&game_sound_eat8);
+        releaseGameSound(&game_sound_extra);
+        releaseGameSound(&game_sound_fire);
+        releaseGameSound(&game_sound_ghosteat);
+        releaseGameSound(&game_sound_ghosteyes);
+        releaseGameSound(&game_sound_happy);
+        releaseGameSound(&game_sound_hurl);
+        /*releaseGameSound(&game_sound_interm1);
+        releaseGameSound(&game_sound_interm2);
+        releaseGameSound(&game_sound_interm3);*/
+        releaseGameSound(&game_sound_interm4);
+        releaseGameSound(&game_sound_munch);
+        releaseGameSound(&game_sound_power);
+        releaseGameSound(&game_sound_siren1);
+        releaseGameSound(&game_sound_siren2);
+        releaseGameSound(&game_sound_siren3);
+        releaseGameSound(&game_sound_siren4);
+        releaseGameSound(&game_sound_siren5);
     }
 
 } // END OF SoundQuit
@@ -3313,32 +3371,32 @@ void CheckCollisions()
         Maze[r][c] = MAZE_BLANK; // clear pellet from maze
 
         // PLAY MUNCH SOUND HERE AND DETERMINE SIREN
-        /* if (sound_ok)
+        if (sound_ok)
         {
-            IDirectSoundBuffer_Play(game_sound_munch, 0, 0, NULL);
+            SoundPlayback(&game_sound_munch, FALSE);
 
             if (pellets_left < 176 && pellets_left > 125)
             {
-                IDirectSoundBuffer_Stop(game_sound_siren1);
-                IDirectSoundBuffer_Play(game_sound_siren2, 0, 0, DSBPLAY_LOOPING);
+                SoundPlayback(&game_sound_siren1, FALSE);
+                SoundPlayback(&game_sound_siren2, TRUE);
             }
             if (pellets_left < 126 && pellets_left > 75)
             {
-                IDirectSoundBuffer_Stop(game_sound_siren2);
-                IDirectSoundBuffer_Play(game_sound_siren3, 0, 0, DSBPLAY_LOOPING);
+                SoundPlayback(&game_sound_siren2, FALSE);
+                SoundPlayback(&game_sound_siren3, TRUE);
             }
             if (pellets_left < 76 && pellets_left > 25)
             {
-                IDirectSoundBuffer_Stop(game_sound_siren3);
-                IDirectSoundBuffer_Play(game_sound_siren4, 0, 0, DSBPLAY_LOOPING);
+                SoundPlayback(&game_sound_siren3, FALSE);
+                SoundPlayback(&game_sound_siren4, TRUE);
             }
             if (pellets_left < 26)
             {
-                IDirectSoundBuffer_Stop(game_sound_siren4);
-                IDirectSoundBuffer_Play(game_sound_siren5, 0, 0, DSBPLAY_LOOPING);
+                SoundPlayback(&game_sound_siren4, FALSE);
+                SoundPlayback(&game_sound_siren5, TRUE);
             }
 
-        } // end if sound_ok */
+        } // end if sound_ok
 
     } // end if MAZE_PELLET
 
@@ -3383,8 +3441,8 @@ void CheckCollisions()
         } // end for
 
         // PLAY EAT POWER PILL REPEAT SOUND
-        /* if (sound_ok)
-            IDirectSoundBuffer_Play(game_sound_power, 0, 0, DSBPLAY_LOOPING); */
+        if (sound_ok)
+            SoundPlayback(&game_sound_power, TRUE);
 
     } // end if MAZE_POWER
 
@@ -3429,33 +3487,33 @@ void CheckCollisions()
                 game_score += a;
 
                 // PLAY FOOD/GOT GUN SOUND OR RANDOM EAT SOUND
-                /* if (sound_ok)
+                if (sound_ok)
                 {
                     if (game_level < 3)
-                        IDirectSoundBuffer_Play(game_sound_eat1, 0, 0, NULL);
+                        SoundPlayback(&game_sound_eat1, FALSE);
                     else
                     {
                         r = rand() % 20;
                         if (r < 12)
-                            IDirectSoundBuffer_Play(game_sound_eat1, 0, 0, NULL);
+                            SoundPlayback(&game_sound_eat1, FALSE);
                         if (r == 12)
-                            IDirectSoundBuffer_Play(game_sound_eat2, 0, 0, NULL);
+                            SoundPlayback(&game_sound_eat2, FALSE);
                         if (r == 13)
-                            IDirectSoundBuffer_Play(game_sound_eat3, 0, 0, NULL);
+                            SoundPlayback(&game_sound_eat3, FALSE);
                         if (r == 14)
-                            IDirectSoundBuffer_Play(game_sound_eat4, 0, 0, NULL);
+                            SoundPlayback(&game_sound_eat4, FALSE);
                         if (r == 15)
-                            IDirectSoundBuffer_Play(game_sound_eat5, 0, 0, NULL);
+                            SoundPlayback(&game_sound_eat5, FALSE);
                         if (r == 16)
-                            IDirectSoundBuffer_Play(game_sound_eat6, 0, 0, NULL);
+                            SoundPlayback(&game_sound_eat6, FALSE);
                         if (r == 17)
-                            IDirectSoundBuffer_Play(game_sound_eat7, 0, 0, NULL);
+                            SoundPlayback(&game_sound_eat7, FALSE);
                         if (r == 18)
-                            IDirectSoundBuffer_Play(game_sound_eat8, 0, 0, NULL);
+                            SoundPlayback(&game_sound_eat8, FALSE);
                         if (r == 19)
-                            IDirectSoundBuffer_Play(game_sound_hurl, 0, 0, NULL);
+                            SoundPlayback(&game_sound_hurl, FALSE);
                     }
-                } // end if sound_ok */
+                } // end if sound_ok
 
             } // end if food collision
 
@@ -3517,13 +3575,13 @@ void CheckCollisions()
                     Vaz.count = 100;
                     if (sound_ok) // STOP ANY LOOPING SOUNDS
                     {
-                        /* IDirectSoundBuffer_Stop(game_sound_power);
-                        IDirectSoundBuffer_Stop(game_sound_ghosteyes);
-                        IDirectSoundBuffer_Stop(game_sound_siren1);
-                        IDirectSoundBuffer_Stop(game_sound_siren2);
-                        IDirectSoundBuffer_Stop(game_sound_siren3);
-                        IDirectSoundBuffer_Stop(game_sound_siren4);
-                        IDirectSoundBuffer_Stop(game_sound_siren5); */
+                        SoundHalt(&game_sound_power);
+                        SoundHalt(&game_sound_ghosteyes);
+                        SoundHalt(&game_sound_siren1);
+                        SoundHalt(&game_sound_siren2);
+                        SoundHalt(&game_sound_siren3);
+                        SoundHalt(&game_sound_siren4);
+                        SoundHalt(&game_sound_siren5);
                     }
                 }
                 if (Ghosts[i].chase == CHASE_AWAY)
@@ -3538,8 +3596,8 @@ void CheckCollisions()
 
                     if (sound_ok) // play ghost eat once and ghost eyes repeating
                     {
-                        /* IDirectSoundBuffer_Play(game_sound_ghosteat, 0, 0, NULL);
-                        IDirectSoundBuffer_Play(game_sound_ghosteyes, 0, 0, DSBPLAY_LOOPING); */
+                        SoundPlayback(&game_sound_ghosteat, FALSE);
+                        SoundPlayback(&game_sound_ghosteyes, TRUE);
                     }
                 }
 
@@ -3554,8 +3612,8 @@ void CheckCollisions()
     {
         vaz_left++;
         extra_score += SCORE_EXTRA;
-        /* if (sound_ok)
-            IDirectSoundBuffer_Play(game_sound_extra, 0, 0, NULL); */
+        if (sound_ok)
+            SoundPlayback(&game_sound_extra, FALSE);
     }
 
 } // END OF CheckCollisions

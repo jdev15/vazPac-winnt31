@@ -1,7 +1,5 @@
-// VazPac.h by PhilVaz
-// Oct 20, 2003
-
-// HEADER FILE ///////////////////////////////////////////////
+#ifndef MAIN_H
+#define MAIN_H
 
 // BMPs
 
@@ -136,6 +134,8 @@
 #define WINDOW_WIDTH 800 // size of game window
 #define WINDOW_HEIGHT 600
 
+#define TIMER_ID 1
+
 #define GAME_SPEED 15 // speed of game (increase to go slower)
 
 #define GAME_STATE_DEMO_INIT 0  // demo initialization state
@@ -245,132 +245,6 @@ HBITMAP back_bmp = NULL;
 HBITMAP old_bmp = NULL;
 RECT back_rect = {0, 0, WINDOW_WIDTH, WINDOW_HEIGHT};
 
-HWAVEOUT game_sound_main = NULL;            // global waveOut playback device
-MMRESULT waveOutput;
-
-
-// SOUND FILE HANDLES AND DATA ////////////////////////////
-
-HMMIO game_sound_death1             = NULL; // sound death 1
-WAVEHDR game_sound_death1_header;
-HANDLE game_sound_death1_handle     = NULL;
-HPSTR game_sound_death1_pointer     = NULL;
-
-HMMIO game_sound_death2             = NULL; // sound death 2
-WAVEHDR game_sound_death2_header;
-char* game_sound_death2_data        = NULL;
-
-HMMIO game_sound_eat1               = NULL; // sound normal food eat
-WAVEHDR game_sound_eat1_header;
-char* game_sound_eat1_data          = NULL;
-
-HMMIO game_sound_eat2               = NULL; // sound eat 2
-WAVEHDR game_sound_eat2_header;
-char* game_sound_eat2_data          = NULL;
-
-HMMIO game_sound_eat3               = NULL; // sound eat 3
-WAVEHDR game_sound_eat3_header;
-char* game_sound_eat3_data          = NULL;
-
-HMMIO game_sound_eat4               = NULL; // sound eat 4 burp
-WAVEHDR game_sound_eat4_header;
-char* game_sound_eat4_data          = NULL;
-
-HMMIO game_sound_eat5               = NULL; // sound eat 5 burp
-WAVEHDR game_sound_eat5_header;
-char* game_sound_eat5_data          = NULL;
-
-HMMIO game_sound_eat6               = NULL; // sound eat 6
-WAVEHDR game_sound_eat6_header;
-char* game_sound_eat6_data          = NULL;
-
-HMMIO game_sound_eat7               = NULL; // sound eat 7 hic
-WAVEHDR game_sound_eat7_header;
-char* game_sound_eat7_data          = NULL;
-
-HMMIO game_sound_eat8               = NULL; // sound eat 8 hic
-WAVEHDR game_sound_eat8_header;
-char* game_sound_eat8_data          = NULL;
-
-HMMIO game_sound_extra              = NULL; // sound extra vaz
-WAVEHDR game_sound_extra_header;
-char* game_sound_extra_data         = NULL;
-
-HMMIO game_sound_fire               = NULL; // sound fire bullet
-WAVEHDR game_sound_fire_header;
-char* game_sound_fire_data          = NULL;
-
-HMMIO game_sound_ghosteat           = NULL; // sound ghost eaten
-WAVEHDR game_sound_ghosteat_header;
-char* game_sound_ghosteat_data      = NULL;
-
-HMMIO game_sound_ghosteyes          = NULL; // sound ghost eyes to jail
-WAVEHDR game_sound_ghosteyes_header;
-char* game_sound_ghosteyes_data     = NULL;
-
-HMMIO game_sound_happy              = NULL; // sound happy giggle
-WAVEHDR game_sound_happy_header;
-char* game_sound_happy_data         = NULL;
-
-HMMIO game_sound_hurl               = NULL; // sound hurl garth
-WAVEHDR game_sound_hurl_header;
-char* game_sound_hurl_data          = NULL;
-
-HMMIO game_sound_interm1            = NULL; // sound interm 1
-WAVEHDR game_sound_interm1_header;
-char* game_sound_interm1_data       = NULL;
-
-HMMIO game_sound_interm2            = NULL; // sound interm 2
-WAVEHDR game_sound_interm2_header;
-char* game_sound_interm2_data       = NULL;
-
-HMMIO game_sound_interm3            = NULL; // sound interm 3
-WAVEHDR game_sound_interm3_header;
-char* game_sound_interm3_data       = NULL;
-
-HMMIO game_sound_interm4            = NULL; // sound interm 4
-WAVEHDR game_sound_interm4_header;
-char* game_sound_interm4_data       = NULL;
-
-HMMIO game_sound_munch              = NULL; // sound normal munch
-WAVEHDR game_sound_munch_header;
-char* game_sound_munch_data         = NULL;
-
-HMMIO game_sound_open1              = NULL; // sound open song 1
-WAVEFORMAT* game_sound_open1_format;
-HGLOBAL game_sound_open1_hdr;
-LPWAVEHDR game_sound_open1_hdr_lp;
-HANDLE game_sound_open1_handle      = NULL;
-HPSTR game_sound_open1_pointer      = NULL;
-
-HMMIO game_sound_open2              = NULL; // sound open song 2
-WAVEHDR game_sound_open2_header;
-char* game_sound_open2_data         = NULL;
-
-HMMIO game_sound_power              = NULL; // sound power pill
-WAVEHDR game_sound_power_header;
-char* game_sound_power_data         = NULL;
-
-HMMIO game_sound_siren1             = NULL; // sound siren 1
-WAVEHDR game_sound_siren1_header;
-char* game_sound_siren1_data        = NULL;
-
-HMMIO game_sound_siren2             = NULL; // sound siren 2
-WAVEHDR game_sound_siren2_header;
-char* game_sound_siren2_data        = NULL;
-
-HMMIO game_sound_siren3             = NULL; // sound siren 3
-WAVEHDR game_sound_siren3_header;
-char* game_sound_siren3_data        = NULL;
-
-HMMIO game_sound_siren4             = NULL; // sound siren 4
-WAVEHDR game_sound_siren4_header;
-char* game_sound_siren4_data        = NULL;
-
-HMMIO game_sound_siren5             = NULL; // sound siren 5
-WAVEHDR game_sound_siren5_header;
-char* game_sound_siren5_data        = NULL;
-
 DEVMODE game_screen; // global for full screen mode
 
 // global pens and brush
@@ -425,14 +299,13 @@ int pellets_left; // total number of pellets counted from Maze
 int level_countdown = 0;  // pause time between levels
 int bullet_countdown = 0; // pause time between bullets
 
-BOOL sound_ok;  // for whether DirectSound set okay
 BOOL anim_over; // for whether intermission animation over
 
 int maze_color; // current maze color
 
 int Maze[MAZE_HEIGHT][MAZE_WIDTH];
 
-int Archive1[MAZE_HEIGHT][MAZE_WIDTH] =
+static const int Archive1[MAZE_HEIGHT][MAZE_WIDTH] =
 
     // MAZE 1
 
@@ -457,7 +330,7 @@ int Archive1[MAZE_HEIGHT][MAZE_WIDTH] =
         {8, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 8},
         {3, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4}};
 
-int Archive2[MAZE_HEIGHT][MAZE_WIDTH] =
+static const int Archive2[MAZE_HEIGHT][MAZE_WIDTH] =
 
     // MAZE 2
 
@@ -482,7 +355,7 @@ int Archive2[MAZE_HEIGHT][MAZE_WIDTH] =
         {8, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 8},
         {3, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4}};
 
-int Archive3[MAZE_HEIGHT][MAZE_WIDTH] =
+static const int Archive3[MAZE_HEIGHT][MAZE_WIDTH] =
 
     // MAZE 3
 
@@ -662,11 +535,6 @@ void DrawScores();
 void InsertParticles(int, int, int); // particle explosion at x,y of type t
 void MoveParticles();
 
-BOOL SoundInit();
-HMMIO SoundFileInit();
-DWORD SoundFileCheck(HMMIO, WAVEFORMAT*);
-void SoundQuit();
-
 BOOL JoyInit();
 void JoyQuit();
 void JoyStatus();
@@ -686,3 +554,5 @@ int XScreenToXMaze(int); // convert x pixel to maze column
 int YScreenToYMaze(int); // convert y pixel to maze row
 
 BOOL CanMove(int, int); // check if valid move (not inside wall)
+
+#endif MAIN_H
